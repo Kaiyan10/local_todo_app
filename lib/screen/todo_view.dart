@@ -3,6 +3,7 @@ import '../data/todo.dart';
 import '../widgets/category_view.dart';
 import '../widgets/priority_view.dart';
 import '../widgets/due_date_view.dart';
+import '../widgets/quick_add_input.dart';
 
 enum TodoViewMode { category, priority, dueDate }
 
@@ -12,11 +13,15 @@ class TodoView extends StatefulWidget {
     required this.todos,
     required this.onUpdate,
     required this.onEdit,
+    required this.onToggle,
+    required this.onQuickAdd,
   });
 
   final List<Todo> todos;
   final VoidCallback onUpdate;
   final Function(Todo) onEdit;
+  final Function(Todo, bool?) onToggle;
+  final Function(String) onQuickAdd;
 
   @override
   State<TodoView> createState() => _TodoViewState();
@@ -70,6 +75,8 @@ class _TodoViewState extends State<TodoView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
+            Expanded(child: QuickAddInput(onAdd: widget.onQuickAdd)),
+            SizedBox(width: 10),
             const Text('対応済も表示'),
             Switch(
               value: _showDone,
@@ -79,9 +86,9 @@ class _TodoViewState extends State<TodoView> {
                 });
               },
             ),
-            const SizedBox(width: 8),
           ],
         ),
+
         const SizedBox(height: 8),
 
         Expanded(child: _buildBody()),
@@ -100,18 +107,21 @@ class _TodoViewState extends State<TodoView> {
           todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
+          onToggle: widget.onToggle,
         );
       case TodoViewMode.priority:
         return PriorityView(
           todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
+          onToggle: widget.onToggle,
         );
       case TodoViewMode.dueDate:
         return DueDateView(
           todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
+          onToggle: widget.onToggle,
         );
     }
   }

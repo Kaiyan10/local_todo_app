@@ -39,8 +39,25 @@ class TodoCard extends StatelessWidget {
                     _dateFormat.format(todo.dueDate!),
                     style: const TextStyle(color: Colors.black),
                   ),
+                if (todo.repeatPattern != RepeatPattern.none) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.repeat, size: 16, color: Colors.grey),
+                  Text(
+                    todo.repeatPattern.displayName,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
                 const SizedBox(width: 8),
                 if (todo.priority != Priority.none) todo.priority.badge!,
+                if (todo.subTasks.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.checklist, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${todo.subTasks.where((st) => st.isDone).length}/${todo.subTasks.length}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
               ],
             ),
           ],
@@ -50,7 +67,11 @@ class TodoCard extends StatelessWidget {
           onPressed: onEdit,
           style: IconButton.styleFrom(foregroundColor: Colors.grey),
         ),
-        leading: Checkbox(value: todo.isDone, onChanged: onCheckboxChanged),
+        leading: Checkbox(
+          shape: const CircleBorder(),
+          value: todo.isDone,
+          onChanged: onCheckboxChanged,
+        ),
       ),
     );
   }

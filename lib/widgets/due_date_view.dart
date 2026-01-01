@@ -8,11 +8,13 @@ class DueDateView extends StatefulWidget {
     required this.todos,
     required this.onEdit,
     required this.onUpdate,
+    required this.onToggle,
   });
 
   final List<Todo> todos;
   final Function(Todo) onEdit;
   final VoidCallback onUpdate;
+  final Function(Todo, bool?) onToggle;
 
   @override
   State<DueDateView> createState() => _DueDateViewState();
@@ -152,8 +154,7 @@ class _DueDateViewState extends State<DueDateView> {
                       todo: todo,
                       onEdit: () => widget.onEdit(todo),
                       onCheckboxChanged: (value) {
-                        todo.isDone = value!;
-                        widget.onUpdate();
+                        widget.onToggle(todo, value);
                       },
                     ),
                   ),

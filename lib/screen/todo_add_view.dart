@@ -19,7 +19,10 @@ class _TodoAddViewState extends State<TodoAddView> {
   final _dueDateController = TextEditingController();
   Priority _priority = Priority.none;
   GtdCategory _category = GtdCategory.inbox;
+  RepeatPattern _repeatPattern = RepeatPattern.none;
   DateTime? _dueDate;
+  List<SubTask> _subTasks = [];
+  final _subTaskController = TextEditingController();
 
   @override
   void initState() {
@@ -29,6 +32,7 @@ class _TodoAddViewState extends State<TodoAddView> {
       _textController.text = t.title;
       _category = t.category;
       _priority = t.priority;
+      _repeatPattern = t.repeatPattern;
       _dueDate = t.dueDate;
       if (_dueDate != null) {
         _dueDateController.text = DateFormat.yMd().format(_dueDate!);
@@ -36,6 +40,7 @@ class _TodoAddViewState extends State<TodoAddView> {
       _tagsController.text = t.tags.join(', ');
       _urlController.text = t.url ?? '';
       _noteController.text = t.note ?? '';
+      _subTasks = List.from(t.subTasks);
     }
   }
 
@@ -46,6 +51,7 @@ class _TodoAddViewState extends State<TodoAddView> {
     _urlController.dispose();
     _noteController.dispose();
     _dueDateController.dispose();
+    _subTaskController.dispose();
     super.dispose();
   }
 
@@ -56,6 +62,7 @@ class _TodoAddViewState extends State<TodoAddView> {
         category: _category,
         priority: _priority,
         dueDate: _dueDate,
+        repeatPattern: _repeatPattern,
         tags: _tagsController.text
             .split(',')
             .map((e) => e.trim())
@@ -68,8 +75,19 @@ class _TodoAddViewState extends State<TodoAddView> {
             ? null
             : _noteController.text.trim(),
         isDone: widget.todo?.isDone ?? false,
+        subTasks: _subTasks,
       );
       Navigator.pop(context, newTodo);
+    }
+  }
+
+  void _addSubTask() {
+    final text = _subTaskController.text.trim();
+    if (text.isNotEmpty) {
+      setState(() {
+        _subTasks.add(SubTask(title: text));
+        _subTaskController.clear();
+      });
     }
   }
 
@@ -175,6 +193,98 @@ class _TodoAddViewState extends State<TodoAddView> {
                         ),
                 ),
                 onTap: _pickDate,
+              ),
+              const SizedBox(height: 16),
+              // Repeat Pattern
+              DropdownButtonFormField<RepeatPattern>(
+                value: _repeatPattern,
+                decoration: const InputDecoration(
+                  labelText: '繰り返し',
+                  border: OutlineInputBorder(),
+                ),
+                items: RepeatPattern.values.map((pattern) {
+                  return DropdownMenuItem(
+                    value: pattern,
+                    child: Text(pattern.displayName),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _repeatPattern = value;
+                    });
+                  }
+                },
+              ),
+              if (_repeatPattern != RepeatPattern.none && _dueDate == null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    '※ 繰り返し設定には期限日（開始日）の設定が必要です',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              // Subtasks
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'サブタスク',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  if (_subTasks.isNotEmpty)
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _subTasks.length,
+                      itemBuilder: (context, index) {
+                        final subTask = _subTasks[index];
+                        return Row(
+                          children: [
+                            Checkbox(
+                              value: subTask.isDone,
+                              onChanged: (val) {
+                                setState(() {
+                                  subTask.isDone = val ?? false;
+                                });
+                              },
+                            ),
+                            Expanded(child: Text(subTask.title)),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                setState(() {
+                                  _subTasks.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _subTaskController,
+                          decoration: const InputDecoration(
+                            hintText: 'サブタスクを追加...',
+                            isDense: true,
+                          ),
+                          onSubmitted: (_) => _addSubTask(),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed: _addSubTask,
+                      ),
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               // Tags

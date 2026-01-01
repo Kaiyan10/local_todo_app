@@ -8,11 +8,13 @@ class PriorityView extends StatefulWidget {
     required this.todos,
     required this.onEdit,
     required this.onUpdate,
+    required this.onToggle,
   });
 
   final List<Todo> todos;
   final Function(Todo) onEdit;
   final VoidCallback onUpdate;
+  final Function(Todo, bool?) onToggle;
 
   @override
   State<PriorityView> createState() => _PriorityViewState();
@@ -108,8 +110,7 @@ class _PriorityViewState extends State<PriorityView> {
                       todo: todo,
                       onEdit: () => widget.onEdit(todo),
                       onCheckboxChanged: (value) {
-                        todo.isDone = value!;
-                        widget.onUpdate();
+                        widget.onToggle(todo, value);
                       },
                     ),
                   ),
