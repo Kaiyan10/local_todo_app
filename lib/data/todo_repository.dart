@@ -2,7 +2,10 @@ import 'todo.dart';
 import 'database_helper.dart';
 
 class TodoRepository {
-  final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
+  final DatabaseHelper _databaseHelper;
+
+  TodoRepository({DatabaseHelper? databaseHelper})
+    : _databaseHelper = databaseHelper ?? DatabaseHelper.instance;
 
   Future<List<Todo>> loadTodos() async {
     return _databaseHelper.readAllTodos();

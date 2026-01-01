@@ -1,32 +1,68 @@
 import 'package:flutter/material.dart';
 
 import 'data/todo.dart';
+import 'data/database_helper.dart';
 import 'data/todo_repository.dart';
+import 'data/settings_service.dart';
 import 'screen/todo_add_view.dart';
 import 'screen/todo_view.dart';
 import 'screen/settings_view.dart';
 import 'package:intl/intl.dart';
 import 'screen/today_due_view.dart';
+import 'screen/weekly_review_wizard.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // DatabaseHelper initializes lazily via the database getter
+  await SettingsService().init();
+  runApp(const TodoApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class TodoApp extends StatefulWidget {
+  const TodoApp({super.key});
+
+  @override
+  State<TodoApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<TodoApp> {
+  ThemeMode _themeMode = ThemeMode.system;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.deepPurple)),
-      home: const MainScreen(),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+      ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+      ),
+      themeMode: _themeMode,
+      home: MainScreen(
+        onThemeChanged: (mode) {
+          setState(() {
+            _themeMode = mode;
+          });
+        },
+        currentThemeMode: _themeMode,
+      ),
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  const MainScreen({
+    super.key,
+    required this.onThemeChanged,
+    required this.currentThemeMode,
+  });
+
+  final Function(ThemeMode) onThemeChanged;
+  final ThemeMode currentThemeMode;
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -114,6 +150,16 @@ class _MainScreenState extends State<MainScreen> {
       _todos.add(todo.copyWith(id: id));
     }
     setState(() {});
+  }
+
+  Future<void> _updateTodoDirectly(Todo todo) async {
+    await _repository.updateTodo(todo);
+    setState(() {
+      final index = _todos.indexWhere((t) => t.id == todo.id);
+      if (index != -1) {
+        _todos[index] = todo;
+      }
+    });
   }
 
   Future<void> _toggleTodo(Todo todo, bool? value) async {
@@ -269,6 +315,24 @@ class _MainScreenState extends State<MainScreen> {
               child: const Text('localTodo', style: TextStyle(fontSize: 24)),
             ),
             ListTile(
+              leading: const Icon(Icons.rate_review),
+              title: const Text('週次レビュー'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => WeeklyReviewWizard(
+                      todos: _todos,
+                      onUpdateTodo: _updateTodoDirectly,
+                      onFinish: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('設定'),
               onTap: () {
@@ -279,6 +343,8 @@ class _MainScreenState extends State<MainScreen> {
                       todos: _todos,
                       onImport: _importTodos,
                       onReload: _loadData,
+                      currentThemeMode: widget.currentThemeMode,
+                      onThemeChanged: widget.onThemeChanged,
                     ),
                   ),
                 );
@@ -297,6 +363,7 @@ class _MainScreenState extends State<MainScreen> {
         onEdit: _editTodo,
         onToggle: _toggleTodo,
         onQuickAdd: _quickAddTodo,
+        onTodoChanged: _updateTodoDirectly,
       ),
     );
   }

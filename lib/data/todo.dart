@@ -1,22 +1,8 @@
 import 'package:flutter/material.dart';
 
-class SubTask {
-  String title;
-  bool isDone;
-
-  SubTask({required this.title, this.isDone = false});
-
-  factory SubTask.fromJson(Map<String, dynamic> json) {
-    return SubTask(title: json['title'], isDone: json['isDone'] ?? false);
-  }
-
-  Map<String, dynamic> toJson() {
-    return {'title': title, 'isDone': isDone};
-  }
-}
-
 class Todo {
   final int? id;
+  final int? parentId; // Added parentId
   final String title;
   GtdCategory category;
   bool isDone;
@@ -27,10 +13,13 @@ class Todo {
   final String? url;
   RepeatPattern repeatPattern;
   DateTime? lastCompletedDate;
-  final List<SubTask> subTasks;
+  final List<Todo> subTasks; // Changed from List<SubTask>
+  String? delegatee;
+  DateTime? delegatedDate;
 
   Todo({
     this.id,
+    this.parentId,
     required this.title,
     this.category = GtdCategory.inbox,
     this.isDone = false,
@@ -42,17 +31,22 @@ class Todo {
     this.repeatPattern = RepeatPattern.none,
     this.lastCompletedDate,
     this.subTasks = const [],
+    this.delegatee,
+    this.delegatedDate,
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
     return Todo(
       id: json['id'],
+      parentId: json['parentId'],
       title: json['title'],
       category: GtdCategory.values.firstWhere(
         (e) => e.name == json['category'],
         orElse: () => GtdCategory.inbox,
       ),
-      isDone: json['isDone'] ?? false,
+      isDone: json['isDone'] is int
+          ? (json['isDone'] == 1)
+          : (json['isDone'] ?? false), // Handle both int (DB) and bool (JSON)
       tags: List<String>.from(json['tags'] ?? []),
       note: json['note'],
       dueDate: json['dueDate'] != null ? DateTime.parse(json['dueDate']) : null,
@@ -70,15 +64,20 @@ class Todo {
           : null,
       subTasks:
           (json['subTasks'] as List<dynamic>?)
-              ?.map((e) => SubTask.fromJson(e))
+              ?.map((e) => Todo.fromJson(e))
               .toList() ??
           [],
+      delegatee: json['delegatee'],
+      delegatedDate: json['delegatedDate'] != null
+          ? DateTime.parse(json['delegatedDate'])
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'parentId': parentId,
       'title': title,
       'category': category.name,
       'isDone': isDone,
@@ -90,11 +89,14 @@ class Todo {
       'repeatPattern': repeatPattern.name,
       'lastCompletedDate': lastCompletedDate?.toIso8601String(),
       'subTasks': subTasks.map((e) => e.toJson()).toList(),
+      'delegatee': delegatee,
+      'delegatedDate': delegatedDate?.toIso8601String(),
     };
   }
 
   Todo copyWith({
     int? id,
+    int? parentId,
     String? title,
     GtdCategory? category,
     bool? isDone,
@@ -105,10 +107,13 @@ class Todo {
     String? url,
     RepeatPattern? repeatPattern,
     DateTime? lastCompletedDate,
-    List<SubTask>? subTasks,
+    List<Todo>? subTasks,
+    String? delegatee,
+    DateTime? delegatedDate,
   }) {
     return Todo(
       id: id ?? this.id,
+      parentId: parentId ?? this.parentId,
       title: title ?? this.title,
       category: category ?? this.category,
       isDone: isDone ?? this.isDone,
@@ -120,6 +125,8 @@ class Todo {
       repeatPattern: repeatPattern ?? this.repeatPattern,
       lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
       subTasks: subTasks ?? this.subTasks,
+      delegatee: delegatee ?? this.delegatee,
+      delegatedDate: delegatedDate ?? this.delegatedDate,
     );
   }
 }

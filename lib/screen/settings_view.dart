@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data/todo.dart';
 import '../data/csv_service.dart';
 import '../data/database_helper.dart';
+import '../data/settings_service.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({
@@ -14,11 +15,15 @@ class SettingsView extends StatelessWidget {
     required this.todos,
     required this.onImport,
     required this.onReload,
+    required this.onThemeChanged,
+    required this.currentThemeMode,
   });
 
   final List<Todo> todos;
   final Function(List<Todo>) onImport;
   final VoidCallback onReload;
+  final Function(ThemeMode) onThemeChanged;
+  final ThemeMode currentThemeMode;
 
   @override
   Widget build(BuildContext context) {
@@ -170,11 +175,47 @@ class SettingsView extends StatelessWidget {
                 title: const Text('言語'),
                 value: const Text('日本語'),
               ),
-              SettingsTile.switchTile(
-                onToggle: (value) {},
-                initialValue: true,
-                leading: const Icon(Icons.format_paint),
-                title: const Text('テーマ'),
+              SettingsTile.navigation(
+                leading: const Icon(Icons.brightness_6),
+                title: const Text('テーマ設定'),
+                value: Text(
+                  currentThemeMode == ThemeMode.system
+                      ? 'システム'
+                      : currentThemeMode == ThemeMode.light
+                      ? 'ライト'
+                      : 'ダーク',
+                ),
+                onPressed: (context) {
+                  showDialog(
+                    context: context,
+                    builder: (context) => SimpleDialog(
+                      title: const Text('テーマを選択'),
+                      children: [
+                        SimpleDialogOption(
+                          onPressed: () {
+                            onThemeChanged(ThemeMode.system);
+                            Navigator.pop(context);
+                          },
+                          child: const Text('システムデフォルト'),
+                        ),
+                        SimpleDialogOption(
+                          onPressed: () {
+                            onThemeChanged(ThemeMode.light);
+                            Navigator.pop(context);
+                          },
+                          child: const Text('ライトモード'),
+                        ),
+                        SimpleDialogOption(
+                          onPressed: () {
+                            onThemeChanged(ThemeMode.dark);
+                            Navigator.pop(context);
+                          },
+                          child: const Text('ダークモード'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -191,6 +232,25 @@ class SettingsView extends StatelessWidget {
             ],
           ),
           SettingsSection(
+            title: const Text('タスク設定'),
+            tiles: <SettingsTile>[
+              SettingsTile.navigation(
+                leading: const Icon(Icons.label),
+                title: const Text('アジェンダ・コンテキスト設定'),
+                onPressed: (context) {
+                  _showContextsDialog(context);
+                },
+              ),
+              SettingsTile.navigation(
+                leading: const Icon(Icons.category),
+                title: const Text('カテゴリ名カスタマイズ'),
+                onPressed: (context) {
+                  _showCategoriesDialog(context);
+                },
+              ),
+            ],
+          ),
+          SettingsSection(
             title: const Text('アプリについて'),
             tiles: <SettingsTile>[
               SettingsTile.navigation(
@@ -199,6 +259,176 @@ class SettingsView extends StatelessWidget {
                 value: const Text('1.0.0'),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showContextsDialog(BuildContext context) {
+    showDialog(context: context, builder: (context) => const _ContextsEditor());
+  }
+
+  void _showCategoriesDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const _CategoriesEditor(),
+    );
+  }
+}
+
+class _ContextsEditor extends StatefulWidget {
+  const _ContextsEditor({super.key});
+
+  @override
+  State<_ContextsEditor> createState() => _ContextsEditorState();
+}
+
+class _ContextsEditorState extends State<_ContextsEditor> {
+  final _controller = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: SettingsService(),
+      builder: (context, child) {
+        final contexts = SettingsService().contexts;
+        return AlertDialog(
+          title: const Text('コンテキスト設定'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: const InputDecoration(
+                          hintText: '新しいタグ (例: @Gym)',
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: () {
+                        if (_controller.text.isNotEmpty) {
+                          String tag = _controller.text.trim();
+                          if (!tag.startsWith('@')) {
+                            tag = '@$tag';
+                          }
+                          SettingsService().addContext(tag);
+                          _controller.clear();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: contexts.length,
+                    itemBuilder: (context, index) {
+                      final tag = contexts[index];
+                      return ListTile(
+                        title: Text(tag),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete),
+                          onPressed: () {
+                            SettingsService().removeContext(tag);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CategoriesEditor extends StatefulWidget {
+  const _CategoriesEditor({super.key});
+
+  @override
+  State<_CategoriesEditor> createState() => _CategoriesEditorState();
+}
+
+class _CategoriesEditorState extends State<_CategoriesEditor> {
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: SettingsService(),
+      builder: (context, _) {
+        return AlertDialog(
+          title: const Text('カテゴリ名カスタマイズ'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: GtdCategory.values.map((category) {
+                return ListTile(
+                  title: Text(SettingsService().getCategoryName(category)),
+                  subtitle: Text('Default: ${category.displayName}'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () {
+                      _showRenameDialog(context, category);
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRenameDialog(BuildContext context, GtdCategory category) {
+    final controller = TextEditingController(
+      text: SettingsService().getCategoryName(category),
+    );
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${category.displayName} の名前変更'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: '表示名'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () {
+              SettingsService().setCategoryName(
+                category,
+                controller.text.trim(),
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('保存'),
           ),
         ],
       ),

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import '../data/todo.dart';
+import '../data/settings_service.dart';
 import '../widgets/category_view.dart';
 import '../widgets/priority_view.dart';
 import '../widgets/due_date_view.dart';
+import '../widgets/context_view.dart';
 import '../widgets/quick_add_input.dart';
+import '../widgets/delegated_view.dart';
 
-enum TodoViewMode { category, priority, dueDate }
+enum TodoViewMode { category, priority, context, delegated, dueDate }
 
 class TodoView extends StatefulWidget {
   const TodoView({
@@ -15,6 +18,7 @@ class TodoView extends StatefulWidget {
     required this.onEdit,
     required this.onToggle,
     required this.onQuickAdd,
+    this.onTodoChanged,
   });
 
   final List<Todo> todos;
@@ -22,6 +26,7 @@ class TodoView extends StatefulWidget {
   final Function(Todo) onEdit;
   final Function(Todo, bool?) onToggle;
   final Function(String) onQuickAdd;
+  final Function(Todo)? onTodoChanged;
 
   @override
   State<TodoView> createState() => _TodoViewState();
@@ -41,7 +46,7 @@ class _TodoViewState extends State<TodoView> {
             showSelectedIcon: false,
             expandedInsets: EdgeInsets.all(5.0),
             style: ButtonStyle(),
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: TodoViewMode.category,
                 label: Padding(
@@ -54,6 +59,17 @@ class _TodoViewState extends State<TodoView> {
                 label: Padding(
                   padding: EdgeInsets.all(8.0),
                   child: Text('優先度'),
+                ),
+              ),
+              ButtonSegment(
+                value: TodoViewMode.delegated,
+                label: Padding(padding: EdgeInsets.all(8.0), child: Text('委任')),
+              ),
+              ButtonSegment(
+                value: TodoViewMode.context,
+                label: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('@Context'),
                 ),
               ),
               ButtonSegment(
@@ -108,6 +124,7 @@ class _TodoViewState extends State<TodoView> {
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
+          onTodoChanged: widget.onTodoChanged,
         );
       case TodoViewMode.priority:
         return PriorityView(
@@ -115,6 +132,23 @@ class _TodoViewState extends State<TodoView> {
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
+          onTodoChanged: widget.onTodoChanged,
+        );
+      case TodoViewMode.delegated:
+        return DelegatedView(
+          todos: displayTodos,
+          onEdit: widget.onEdit,
+          onUpdate: widget.onUpdate,
+          onToggle: widget.onToggle,
+          onTodoChanged: widget.onTodoChanged,
+        );
+      case TodoViewMode.context:
+        return ContextView(
+          todos: displayTodos,
+          onEdit: widget.onEdit,
+          onUpdate: widget.onUpdate,
+          onToggle: widget.onToggle,
+          onTodoChanged: widget.onTodoChanged,
         );
       case TodoViewMode.dueDate:
         return DueDateView(
@@ -122,6 +156,7 @@ class _TodoViewState extends State<TodoView> {
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
+          onTodoChanged: widget.onTodoChanged,
         );
     }
   }

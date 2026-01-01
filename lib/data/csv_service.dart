@@ -10,7 +10,7 @@ import 'package:universal_io/io.dart' as io;
 import 'todo.dart';
 
 class CsvService {
-  Future<void> exportToCsv(List<Todo> todos) async {
+  String generateCsvContent(List<Todo> todos) {
     final List<List<dynamic>> rows = [];
     // Header
     rows.add([
@@ -37,7 +37,11 @@ class CsvService {
       ]);
     }
 
-    String csv = const ListToCsvConverter().convert(rows);
+    return const ListToCsvConverter().convert(rows);
+  }
+
+  Future<void> exportToCsv(List<Todo> todos) async {
+    final csv = generateCsvContent(todos);
 
     if (kIsWeb) {
       // Export for Web: Download file
@@ -58,19 +62,8 @@ class CsvService {
     }
   }
 
-  Future<List<Todo>> importFromCsv(PlatformFile file) async {
+  List<Todo> parseCsvContent(String input) {
     try {
-      String input;
-      if (kIsWeb) {
-        // On Web, use bytes
-        if (file.bytes == null) throw Exception("No data in file");
-        input = utf8.decode(file.bytes!);
-      } else {
-        // On Native, use path
-        if (file.path == null) throw Exception("No file path");
-        input = await io.File(file.path!).readAsString();
-      }
-
       final fields = const CsvToListConverter().convert(input);
 
       if (fields.isEmpty) return [];
@@ -136,6 +129,26 @@ class CsvService {
           .toList();
     } catch (e) {
       print('Error parsing CSV: $e');
+      return [];
+    }
+  }
+
+  Future<List<Todo>> importFromCsv(PlatformFile file) async {
+    try {
+      String input;
+      if (kIsWeb) {
+        // On Web, use bytes
+        if (file.bytes == null) throw Exception("No data in file");
+        input = utf8.decode(file.bytes!);
+      } else {
+        // On Native, use path
+        if (file.path == null) throw Exception("No file path");
+        input = await io.File(file.path!).readAsString();
+      }
+
+      return parseCsvContent(input);
+    } catch (e) {
+      print('Error reading CSV file details: $e');
       return [];
     }
   }

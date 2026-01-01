@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/todo.dart';
+import '../data/settings_service.dart';
 import 'todo_card.dart';
 
 class CategoryView extends StatefulWidget {
@@ -9,12 +10,14 @@ class CategoryView extends StatefulWidget {
     required this.onEdit,
     required this.onUpdate,
     required this.onToggle,
+    this.onTodoChanged,
   });
 
   final List<Todo> todos;
   final Function(Todo) onEdit;
   final VoidCallback onUpdate;
   final Function(Todo, bool?) onToggle;
+  final Function(Todo)? onTodoChanged;
 
   @override
   State<CategoryView> createState() => _CategoryViewState();
@@ -54,13 +57,16 @@ class _CategoryViewState extends State<CategoryView> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    category.displayName.toUpperCase(),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
+                Container(
+                  width: double.infinity,
+                  color: Colors.transparent, // Ensure hit test works
+                  child: ExpansionTile(
+                    title: Text(
+                      SettingsService().getCategoryName(category),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                 ),
@@ -83,34 +89,44 @@ class _CategoryViewState extends State<CategoryView> {
                       ),
                     ),
                   ),
-                ...todos.map(
-                  (todo) => Draggable<Todo>(
-                    data: todo,
-                    feedback: SizedBox(
-                      width: MediaQuery.of(context).size.width - 32,
+                if (category == GtdCategory.waitingFor) ...[
+                  ..._buildGroupedByDelegatee(todos, context),
+                ] else ...[
+                  ...todos.map(
+                    (todo) => Draggable<Todo>(
+                      data: todo,
+                      feedback: Material(
+                        elevation: 4.0,
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.transparent,
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width - 32,
+                          child: TodoCard(
+                            todo: todo,
+                            onEdit: () {},
+                            onCheckboxChanged: (value) {},
+                          ),
+                        ),
+                      ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.3,
+                        child: TodoCard(
+                          todo: todo,
+                          onEdit: () {},
+                          onCheckboxChanged: (value) {},
+                        ),
+                      ),
                       child: TodoCard(
                         todo: todo,
-                        onEdit: () {},
-                        onCheckboxChanged: (value) {},
+                        onEdit: () => widget.onEdit(todo),
+                        onCheckboxChanged: (value) {
+                          widget.onToggle(todo, value);
+                        },
+                        onTodoChanged: widget.onTodoChanged,
                       ),
-                    ),
-                    childWhenDragging: Opacity(
-                      opacity: 0.3,
-                      child: TodoCard(
-                        todo: todo,
-                        onEdit: () {},
-                        onCheckboxChanged: (value) {},
-                      ),
-                    ),
-                    child: TodoCard(
-                      todo: todo,
-                      onEdit: () => widget.onEdit(todo),
-                      onCheckboxChanged: (value) {
-                        widget.onToggle(todo, value);
-                      },
                     ),
                   ),
-                ),
+                ],
                 const Divider(),
               ],
             );
@@ -118,5 +134,79 @@ class _CategoryViewState extends State<CategoryView> {
         );
       },
     );
+  }
+
+  List<Widget> _buildGroupedByDelegatee(
+    List<Todo> todos,
+    BuildContext context,
+  ) {
+    final Map<String?, List<Todo>> grouped = {};
+    for (var todo in todos) {
+      grouped.putIfAbsent(todo.delegatee, () => []).add(todo);
+    }
+
+    // Sort to show defined delegatees first, then null/empty
+    final sortedKeys = grouped.keys.toList()
+      ..sort((a, b) {
+        if (a == null || a.isEmpty) return 1;
+        if (b == null || b.isEmpty) return -1;
+        return a.compareTo(b);
+      });
+
+    final List<Widget> widgets = [];
+    for (var key in sortedKeys) {
+      final label = (key == null || key.isEmpty) ? '担当者未設定' : key;
+      final groupTodos = grouped[key]!;
+
+      widgets.add(
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+
+      widgets.addAll(
+        groupTodos.map(
+          (todo) => Draggable<Todo>(
+            data: todo,
+            feedback: SizedBox(
+              width: MediaQuery.of(context).size.width - 32,
+              child: TodoCard(
+                todo: todo,
+                onEdit: () {},
+                onCheckboxChanged: (value) {},
+              ),
+            ),
+            childWhenDragging: Opacity(
+              opacity: 0.3,
+              child: TodoCard(
+                todo: todo,
+                onEdit: () {},
+                onCheckboxChanged: (value) {},
+              ),
+            ),
+            child: TodoCard(
+              todo: todo,
+              onEdit: () => widget.onEdit(todo),
+              onCheckboxChanged: (value) {
+                widget.onToggle(todo, value);
+              },
+              onTodoChanged: widget.onTodoChanged,
+            ),
+          ),
+        ),
+      );
+    }
+    return widgets;
   }
 }
