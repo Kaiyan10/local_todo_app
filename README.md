@@ -1,6 +1,6 @@
 # flutter_todo
 
-A new Flutter project.
+Webサービスが使えないときに利用する用のTodoアプリケーション
 
 ## Getting Started
 

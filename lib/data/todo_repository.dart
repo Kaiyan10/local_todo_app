@@ -1,42 +1,33 @@
 import 'dart:convert';
-import 'dart:io';
-
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'todo.dart';
-
 import 'dummy_data.dart';
 
 class TodoRepository {
-  Future<String> _getFilePath() async {
-    final directory = await getApplicationDocumentsDirectory();
-    return '${directory.path}/todos.json';
-  }
+  static const String _keyTodos = 'todos';
 
   Future<List<Todo>> loadTodos() async {
     try {
-      final path = await _getFilePath();
-      final file = File(path);
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_keyTodos);
 
-      if (!await file.exists()) {
+      if (jsonString == null) {
         return dummyTodos;
       }
 
-      final content = await file.readAsString();
-      final List<dynamic> jsonList = jsonDecode(content);
+      final List<dynamic> jsonList = jsonDecode(jsonString);
       return jsonList.map((json) => Todo.fromJson(json)).toList();
     } catch (e) {
-      // In case of error (corruption, etc.), return empty list
       print('Error loading todos: $e');
-      return [];
+      return dummyTodos;
     }
   }
 
   Future<void> saveTodos(List<Todo> todos) async {
     try {
-      final path = await _getFilePath();
-      final file = File(path);
+      final prefs = await SharedPreferences.getInstance();
       final jsonList = todos.map((todo) => todo.toJson()).toList();
-      await file.writeAsString(jsonEncode(jsonList));
+      await prefs.setString(_keyTodos, jsonEncode(jsonList));
     } catch (e) {
       print('Error saving todos: $e');
     }

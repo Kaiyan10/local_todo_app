@@ -24,73 +24,92 @@ class TodoView extends StatefulWidget {
 
 class _TodoViewState extends State<TodoView> {
   TodoViewMode _viewMode = TodoViewMode.category;
+  bool _showDone = false;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: SegmentedButton<TodoViewMode>(
-              showSelectedIcon: false,
-              style: ButtonStyle(),
-              segments: const [
-                ButtonSegment(
-                  value: TodoViewMode.category,
-                  label: Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('カテゴリ'),
-                  ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: SegmentedButton<TodoViewMode>(
+            showSelectedIcon: false,
+            expandedInsets: EdgeInsets.all(5.0),
+            style: ButtonStyle(),
+            segments: const [
+              ButtonSegment(
+                value: TodoViewMode.category,
+                label: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('カテゴリ'),
                 ),
-                ButtonSegment(
-                  value: TodoViewMode.priority,
-                  label: Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('優先度'),
-                  ),
+              ),
+              ButtonSegment(
+                value: TodoViewMode.priority,
+                label: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('優先度'),
                 ),
-                ButtonSegment(
-                  value: TodoViewMode.dueDate,
-                  label: Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('期限日'),
-                  ),
+              ),
+              ButtonSegment(
+                value: TodoViewMode.dueDate,
+                label: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('期限日'),
                 ),
-              ],
-              selected: {_viewMode},
-              onSelectionChanged: (Set<TodoViewMode> newSelection) {
+              ),
+            ],
+            selected: {_viewMode},
+            onSelectionChanged: (Set<TodoViewMode> newSelection) {
+              setState(() {
+                _viewMode = newSelection.first;
+              });
+            },
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            const Text('対応済も表示'),
+            Switch(
+              value: _showDone,
+              onChanged: (value) {
                 setState(() {
-                  _viewMode = newSelection.first;
+                  _showDone = value;
                 });
               },
             ),
-          ),
-          SizedBox(height: 8),
+            const SizedBox(width: 8),
+          ],
+        ),
+        const SizedBox(height: 8),
 
-          Expanded(child: _buildBody()),
-        ],
-      ),
+        Expanded(child: _buildBody()),
+      ],
     );
   }
 
   Widget _buildBody() {
+    final displayTodos = _showDone
+        ? widget.todos
+        : widget.todos.where((t) => !t.isDone).toList();
+
     switch (_viewMode) {
       case TodoViewMode.category:
         return CategoryView(
-          todos: widget.todos,
+          todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
         );
       case TodoViewMode.priority:
         return PriorityView(
-          todos: widget.todos,
+          todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
         );
       case TodoViewMode.dueDate:
         return DueDateView(
-          todos: widget.todos,
+          todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
         );

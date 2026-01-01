@@ -35,6 +35,12 @@ class _CategoryViewState extends State<CategoryView> {
       itemBuilder: (context, index) {
         final category = categories[index];
         final todos = groupedTodos[category] ?? [];
+        todos.sort((a, b) {
+          if (a.dueDate == null && b.dueDate == null) return 0;
+          if (a.dueDate == null) return 1;
+          if (b.dueDate == null) return -1;
+          return a.dueDate!.compareTo(b.dueDate!);
+        });
 
         return DragTarget<Todo>(
           onWillAccept: (data) => data != null && data.category != category,

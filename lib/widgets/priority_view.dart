@@ -39,6 +39,12 @@ class _PriorityViewState extends State<PriorityView> {
       itemBuilder: (context, index) {
         final priority = priorities[index];
         final todos = groupedTodos[priority] ?? [];
+        todos.sort((a, b) {
+          if (a.dueDate == null && b.dueDate == null) return 0;
+          if (a.dueDate == null) return 1;
+          if (b.dueDate == null) return -1;
+          return a.dueDate!.compareTo(b.dueDate!);
+        });
 
         return DragTarget<Todo>(
           onWillAccept: (data) => data != null && data.priority != priority,
