@@ -9,12 +9,14 @@ class TodayDueView extends StatelessWidget {
     super.key,
     required this.todos,
     required this.onEdit,
-    required this.onUpdate,
+    required this.onToggle,
+    required this.onTodoChanged,
   });
 
   final List<Todo> todos;
   final Function(Todo) onEdit;
-  final VoidCallback onUpdate;
+  final Function(Todo, bool?) onToggle;
+  final Function(Todo) onTodoChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -139,10 +141,8 @@ class TodayDueView extends StatelessWidget {
             (todo) => TodoCard(
               todo: todo,
               onEdit: () => onEdit(todo),
-              onCheckboxChanged: (value) {
-                todo.isDone = value!;
-                onUpdate();
-              },
+              onCheckboxChanged: (value) => onToggle(todo, value),
+              onTodoChanged: onTodoChanged,
             ),
           ),
       ],

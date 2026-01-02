@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
+import 'package:mockito/mockito.dart';
 
 import 'package:flutter_todo/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_todo/data/settings_service.dart';
+import 'package:flutter_todo/data/todo_repository.dart';
+import 'package:flutter_todo/data/todo.dart';
+
+@GenerateMocks([TodoRepository])
+import 'widget_test.mocks.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  late MockTodoRepository mockRepository;
 
   setUpAll(() async {
     // Mock SharedPreferences for SettingsService
@@ -15,12 +23,18 @@ void main() {
     await SettingsService().init();
   });
 
-  testWidgets('Add task smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const TodoApp());
+  setUp(() {
+    mockRepository = MockTodoRepository();
+    // Default stubs
+    when(mockRepository.loadTodos()).thenAnswer((_) async => []);
+  });
 
-    // Verify that we start with no items or handle empty state
-    // expect(find.text('Buy milk'), findsOneWidget); // Removed as DB might be empty
+  testWidgets('Add task smoke test', (WidgetTester tester) async {
+    // Stub addTodo to return a dummy ID
+    when(mockRepository.addTodo(any)).thenAnswer((_) async => 1);
+
+    // Build our app and trigger a frame.
+    await tester.pumpWidget(TodoApp(todoRepository: mockRepository));
 
     // Verify FAB is present
     expect(find.byIcon(Icons.add), findsOneWidget);
@@ -31,9 +45,10 @@ void main() {
 
     // Verify we are on the Add Task screen
     expect(find.text('Add Task'), findsOneWidget);
-    // There are multiple text fields now, look for the title one specifically
+
+    // Find text field
     final titleFinder = find.ancestor(
-      of: find.text('タスク名'), // Updated to match actual UI label
+      of: find.text('タスク名'),
       matching: find.byType(TextField),
     );
     expect(titleFinder, findsOneWidget);
@@ -48,9 +63,14 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify we are back on the dashboard
-    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Local Todo'), findsOneWidget); // AppBar title
 
     // Verify the new task is displayed
+    // Note: Since we mock addTodo/loadTodos, the UI state update depends on MainScreen logic.
+    // MainScreen adds result directly to list without reloading from DB in _addTodo.
     expect(find.text('Test New Task'), findsOneWidget);
+
+    // Verify add was called
+    verify(mockRepository.addTodo(any)).called(1);
   });
 }

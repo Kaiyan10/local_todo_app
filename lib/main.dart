@@ -19,7 +19,8 @@ void main() async {
 }
 
 class TodoApp extends StatefulWidget {
-  const TodoApp({super.key});
+  final TodoRepository? todoRepository;
+  const TodoApp({super.key, this.todoRepository});
 
   @override
   State<TodoApp> createState() => _MyAppState();
@@ -49,6 +50,7 @@ class _MyAppState extends State<TodoApp> {
           });
         },
         currentThemeMode: _themeMode,
+        todoRepository: widget.todoRepository,
       ),
     );
   }
@@ -59,22 +61,25 @@ class MainScreen extends StatefulWidget {
     super.key,
     required this.onThemeChanged,
     required this.currentThemeMode,
+    this.todoRepository,
   });
 
   final Function(ThemeMode) onThemeChanged;
   final ThemeMode currentThemeMode;
+  final TodoRepository? todoRepository;
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  final TodoRepository _repository = TodoRepository();
+  late final TodoRepository _repository;
   List<Todo> _todos = [];
 
   @override
   void initState() {
     super.initState();
+    _repository = widget.todoRepository ?? TodoRepository();
     _loadData();
   }
 
@@ -124,20 +129,8 @@ class _MainScreenState extends State<MainScreen> {
         builder: (context) => TodayDueView(
           todos: _todos,
           onEdit: _editTodo,
-          onUpdate: () async {
-            // onUpdate in TodayDueView implies something changed outside of edit?
-            // Actually TodayDueView might modify todos?
-            // checking existing logic: onUpdate was passed to sub-widgets.
-            // If sub-widgets rely on it to trigger save, we need to check usage?
-            // CategoryView etc use onUpdate to just trigger parent setState/save.
-            // If we use direct update functions, onUpdate might just be reload or no-op/setState.
-
-            // Ideally we pass specific callbacks. But for now, let's just reload data or assume edits handled.
-            // If subwidgets call onUpdate() it means "Force save"?
-            // Refactoring needed.
-            // For now, let's reload.
-            _loadData();
-          },
+          onToggle: _toggleTodo,
+          onTodoChanged: _updateTodoDirectly,
         ),
       ),
     );

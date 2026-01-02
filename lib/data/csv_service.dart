@@ -64,7 +64,8 @@ class CsvService {
 
   List<Todo> parseCsvContent(String input) {
     try {
-      final fields = const CsvToListConverter().convert(input);
+      final eol = input.contains('\r\n') ? '\r\n' : '\n';
+      final fields = CsvToListConverter(eol: eol).convert(input);
 
       if (fields.isEmpty) return [];
 
