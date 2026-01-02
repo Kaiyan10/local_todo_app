@@ -221,11 +221,6 @@ class SettingsView extends StatelessWidget {
             title: const Text('一般'),
             tiles: <SettingsTile>[
               SettingsTile.navigation(
-                leading: const Icon(Icons.language),
-                title: const Text('言語'),
-                value: const Text('日本語'),
-              ),
-              SettingsTile.navigation(
                 leading: const Icon(Icons.brightness_6),
                 title: const Text('テーマ設定'),
                 value: Text(
@@ -265,18 +260,6 @@ class SettingsView extends StatelessWidget {
                       ],
                     ),
                   );
-                },
-              ),
-            ],
-          ),
-          SettingsSection(
-            title: const Text('アカウント'),
-            tiles: <SettingsTile>[
-              SettingsTile.navigation(
-                leading: const Icon(Icons.logout),
-                title: const Text('ログアウト'),
-                onPressed: (context) {
-                  // TODO: Implement logout
                 },
               ),
             ],

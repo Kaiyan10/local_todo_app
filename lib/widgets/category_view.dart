@@ -61,7 +61,7 @@ class _CategoryViewState extends State<CategoryView> {
               children: [
                 Container(
                   width: double.infinity,
-                  color: Colors.transparent, // Ensure hit test works
+                  color: Colors.transparent,
                   child: ExpansionTile(
                     title: Text(
                       SettingsService().getCategoryName(category),
@@ -148,7 +148,7 @@ class _CategoryViewState extends State<CategoryView> {
       grouped.putIfAbsent(todo.delegatee, () => []).add(todo);
     }
 
-    // Sort to show defined delegatees first, then null/empty
+    // 担当者が設定されているものを先に、未設定（nullまたは空）を後に表示するようにソート
     final sortedKeys = grouped.keys.toList()
       ..sort((a, b) {
         if (a == null || a.isEmpty) return 1;

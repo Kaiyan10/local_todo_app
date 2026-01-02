@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../data/todo.dart';
 import '../widgets/todo_card.dart';
+import '../widgets/empty_state_widget.dart';
 
 class TodayDueView extends StatefulWidget {
   const TodayDueView({
@@ -23,11 +24,11 @@ class TodayDueView extends StatefulWidget {
 }
 
 class _TodayDueViewState extends State<TodayDueView> {
-  // We use the parent's list, but rebuild when we optimistic update.
-  // Ideally we should make a local copy if we want isolated state,
-  // but we want to reflect parent changes too if they happen.
-  // Since we don't get stream of updates, relying on setState to simple rebuild
-  // with current logic is enough for immediate feedback.
+  // 親のリストを使用するが、楽観的更新（optimistic update）の際に再構築を行う。
+  // 独立した状態が必要な場合はローカルコピーを作成するのが理想的だが、
+  // 親の変更も反映させたいため、現在のリストを使用する。
+  // 更新ストリームがないため、setStateに依存して現在のロジックで再構築するだけで、
+  // 即時のフィードバックには十分である。
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +37,7 @@ class _TodayDueViewState extends State<TodayDueView> {
     final todayStart = DateTime(now.year, now.month, now.day);
     final yesterdayStart = todayStart.subtract(const Duration(days: 1));
 
-    // 1. Blockers
+    // 1. ブロッカー
     final blockers = widget.todos.where((todo) {
       if (todo.isDone) return false;
       final isHigh = todo.priority == Priority.high;
@@ -45,7 +46,7 @@ class _TodayDueViewState extends State<TodayDueView> {
       return isHigh || isOverdue;
     }).toList();
 
-    // 2. Today's Plan
+    // 2. 今日の予定
     final todaysPlan = widget.todos.where((todo) {
       if (todo.isDone) return false;
       if (blockers.contains(todo)) return false;
@@ -61,7 +62,7 @@ class _TodayDueViewState extends State<TodayDueView> {
       return isDueToday || isNextAction;
     }).toList();
 
-    // 3. Yesterday's Wins
+    // 3. 昨日の成果
     final yesterdaysWins = widget.todos.where((todo) {
       if (!todo.isDone || todo.lastCompletedDate == null) return false;
       return todo.lastCompletedDate!.isAfter(yesterdayStart) &&
@@ -89,98 +90,144 @@ class _TodayDueViewState extends State<TodayDueView> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16.0),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildSectionHeader(
+                  context,
+                  '🚫 Blockers / Overdue',
+                  blockers.length,
+                  Colors.red,
+                ),
+                if (blockers.isEmpty)
+                  _buildEmptyState('ブロッカーなし、順調です！', Icons.check_circle_outline),
+              ]),
+            ),
+          ),
+          if (blockers.isNotEmpty) _buildSliverList(blockers),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildSectionHeader(
+                  context,
+                  '📅 Today\'s Plan',
+                  todaysPlan.length,
+                  Colors.blue,
+                ),
+                if (todaysPlan.isEmpty)
+                  _buildEmptyState('今日のタスクはすべて完了しました！', Icons.done_all),
+              ]),
+            ),
+          ),
+          if (todaysPlan.isNotEmpty) _buildSliverList(todaysPlan),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildSectionHeader(
+                  context,
+                  '🎉 Yesterday\'s Wins',
+                  yesterdaysWins.length,
+                  Colors.green,
+                ),
+                if (yesterdaysWins.isEmpty)
+                  _buildEmptyState('昨日の実績はありませんでした。', Icons.history),
+              ]),
+            ),
+          ),
+          if (yesterdaysWins.isNotEmpty) _buildSliverList(yesterdaysWins),
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: EmptyStateWidget(message: message, icon: icon),
+    );
+  }
+
+  Widget _buildSectionHeader(
+    BuildContext context,
+    String title,
+    int count,
+    MaterialColor? themeColor,
+  ) {
+    final primaryColor = themeColor ?? Theme.of(context).colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0, left: 4.0, right: 4.0),
+      child: Row(
         children: [
-          _buildSection(context, '🚫 Blockers / Overdue', blockers, Colors.red),
-          const SizedBox(height: 16),
-          _buildSection(context, '📅 Today\'s Plan', todaysPlan, Colors.blue),
-          const SizedBox(height: 16),
-          _buildSection(
-            context,
-            '🎉 Yesterday\'s Wins',
-            yesterdaysWins,
-            Colors.green,
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                color: primaryColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSection(
-    BuildContext context,
-    String title,
-    List<Todo> sectionTodos,
-    MaterialColor? themeColor,
-  ) {
-    final bgColor = themeColor != null
-        ? themeColor[100]
-        : Theme.of(context).colorScheme.surfaceContainerHighest;
-    final textColor = themeColor != null
-        ? themeColor[900]
-        : Theme.of(context).colorScheme.onSurfaceVariant;
+  SliverList _buildSliverList(List<Todo> todos) {
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final todo = todos[index];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+          child: TodoCard(
+            todo: todo,
+            onEdit: () => widget.onEdit(todo),
+            onCheckboxChanged: (value) {
+              // 即時のUI応答のための楽観的更新
+              setState(() {
+                todo.isDone = value ?? false;
+              });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8.0),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(8),
+              // 実際のロジックを実行
+              widget.onToggle(todo, value);
+            },
+            onTodoChanged: (updatedTodo) {
+              widget.onTodoChanged(updatedTodo);
+              setState(() {}); // サブタスクの変更を反映するために再構築
+            },
           ),
-          child: Text(
-            '$title (${sectionTodos.length})',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: textColor,
-            ),
-          ),
-        ),
-        if (sectionTodos.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('Nothing here.', style: TextStyle(color: Colors.grey)),
-          )
-        else
-          ...sectionTodos.map(
-            (todo) => TodoCard(
-              todo: todo,
-              onEdit: () => widget.onEdit(todo),
-              onCheckboxChanged: (value) {
-                // Optimistic update for immediate UI response
-                setState(() {
-                  // We rely on MainScreen state update eventually,
-                  // but triggering setState here ensures we re-render
-                  // with the potentially mutated todo object if shared,
-                  // or at least gives immediate feedback if we manually toggle simple states.
-                  // Since Todo is mutable (isDone is mutable), we can update it locally first.
-
-                  // For simple toggle (non-recurrence), modifying isDone is safe.
-                  // For recurrence, MainScreen handles it.
-                  // We invoke onToggle.
-
-                  // NOTE: MainScreen toggle logic calls setState.
-                  // If we want immediate visual update here, we can set isDone if it's not recurrence logic.
-                  // But to be safe and simple, just calling setState() after onToggle invocation *might* be enough
-                  // if onToggle is sync or modifying the object reference we hold.
-                  // However, onToggle in main.dart is async.
-
-                  // Optimistic approach:
-                  todo.isDone = value ?? false;
-                });
-
-                // Invoke actual logic
-                // Pass callback to ensure state consistency later
-                widget.onToggle(todo, value);
-              },
-              onTodoChanged: (updatedTodo) {
-                widget.onTodoChanged(updatedTodo);
-                setState(() {}); // Rebuild to reflect subtask changes
-              },
-            ),
-          ),
-      ],
+        );
+      }, childCount: todos.length),
     );
   }
 

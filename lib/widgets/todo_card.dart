@@ -51,197 +51,204 @@ class _TodoCardState extends State<TodoCard> {
     _subTaskController.clear();
   }
 
-  @override
-  // Ideally, if subtasks exist, we want the card to be expandable.
-  // Standard ExpansionTile forces a specific layout (leading, title, trailing).
-  // Our TodoCard has custom layout.
-  // We can use helper variable to track expansion if we build manually, but ExpansionTile is easier if we fit our content.
-  // Let's try to fit our content into ExpansionTile's title/subtitle.
-  // Issue: ExpansionTile trailing is usually the arrow. We have an edit button.
-  // We can put the edit button in the title/subtitle or use empty trailing and put arrow elsewhere?
-  // Or just put Edit button in the expanded area? No, we want quick access.
-  // Let's keep Edit button as trailing. The ExpansionTile arrow can be hidden or replaced?
-  // Actually, tapping the tile expands it.
-  @override
-  Widget build(BuildContext context) {
-    // If no subtasks, return simple card (previous behavior)
-    if (widget.todo.subTasks.isEmpty) {
-      return _buildCardContent(context, expand: false);
+  Color? _getPriorityColor(Priority priority) {
+    switch (priority) {
+      case Priority.high:
+        return Colors.redAccent;
+      case Priority.medium:
+        return Colors.orangeAccent;
+      case Priority.low:
+        return Colors.green;
+      case Priority.none:
+        return null;
     }
+  }
 
+  Widget _buildStyledCard(Widget child) {
+    final priorityColor = _getPriorityColor(widget.todo.priority);
     return Card(
-      child: Column(
-        children: [
-          _buildCardContent(context, expand: true),
-          if (_isExpanded)
-            ...widget.todo.subTasks.asMap().entries.map((entry) {
-              final index = entry.key;
-              final subTask = entry.value;
-              return Padding(
-                padding: const EdgeInsets.only(
-                  left: 16.0,
-                  right: 16.0,
-                  bottom: 4.0,
-                ),
-                child: InkWell(
-                  onLongPress: () {
-                    // Show menu for promotion
-                    // final RenderBox overlay =
-                    //    Overlay.of(context).context.findRenderObject()
-                    //        as RenderBox;
-                    // We need position. Actually PopupMenuButton is easier if we can put it in the layout.
-                    // But we are in a Row.
-                  },
-                  onTap: () async {
-                    if (widget.onTodoChanged == null) return;
-
-                    final updatedSubTask = await Navigator.push<Todo>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TodoAddView(todo: subTask),
-                      ),
-                    );
-
-                    if (updatedSubTask != null) {
-                      final updatedSubTasks = List<Todo>.from(
-                        widget.todo.subTasks,
-                      );
-                      updatedSubTasks[index] = updatedSubTask;
-                      final updatedTodo = widget.todo.copyWith(
-                        subTasks: updatedSubTasks,
-                      );
-                      widget.onTodoChanged!(updatedTodo);
-                    }
-                  },
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: Checkbox(
-                          value: subTask.isDone,
-                          onChanged: (val) {
-                            if (widget.onTodoChanged != null && val != null) {
-                              final updatedSub = subTask.copyWith(isDone: val);
-                              final updatedSubTasks = List<Todo>.from(
-                                widget.todo.subTasks,
-                              );
-                              updatedSubTasks[index] = updatedSub;
-                              final updatedTodo = widget.todo.copyWith(
-                                subTasks: updatedSubTasks,
-                              );
-                              widget.onTodoChanged!(updatedTodo);
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              subTask.title,
-                              style: TextStyle(
-                                decoration: subTask.isDone
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                                color: subTask.isDone ? Colors.grey : null,
-                                fontSize: 13,
-                              ),
-                            ),
-                            if (subTask.dueDate != null)
-                              Text(
-                                _dateFormat.format(subTask.dueDate!),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: subTask.isDone
-                                      ? Colors.grey
-                                      : Colors.red,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (widget.onPromote != null)
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert, size: 16),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'promote',
-                              child: Text('タスクに昇格'),
-                            ),
-                          ],
-                          onSelected: (value) {
-                            if (value == 'promote') {
-                              widget.onPromote!(widget.todo, subTask);
-                            }
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          if (_isExpanded)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.add, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _subTaskController,
-                      decoration: const InputDecoration(
-                        hintText: 'サブタスクを追加',
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
-                      onSubmitted: _submitSubTask,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.send, size: 20),
-                    onPressed: () => _submitSubTask(_subTaskController.text),
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-            ),
-          if (_isExpanded) const SizedBox(height: 8),
-        ],
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: BoxDecoration(
+          border: priorityColor != null
+              ? Border(left: BorderSide(color: priorityColor, width: 4))
+              : null,
+        ),
+        child: child,
       ),
     );
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final content = Column(
+      children: [
+        _buildCardContent(context, expand: true),
+        if (_isExpanded && widget.todo.subTasks.isNotEmpty)
+          ...widget.todo.subTasks.asMap().entries.map((entry) {
+            final index = entry.key;
+            final subTask = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(
+                left: 16.0,
+                right: 16.0,
+                bottom: 4.0,
+              ),
+              child: InkWell(
+                onTap: () async {
+                  if (widget.onTodoChanged == null) return;
+                  final updatedSubTask = await Navigator.push<Todo>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TodoAddView(todo: subTask),
+                    ),
+                  );
+                  if (updatedSubTask != null) {
+                    final updatedSubTasks = List<Todo>.from(
+                      widget.todo.subTasks,
+                    );
+                    updatedSubTasks[index] = updatedSubTask;
+                    final updatedTodo = widget.todo.copyWith(
+                      subTasks: updatedSubTasks,
+                    );
+                    widget.onTodoChanged!(updatedTodo);
+                  }
+                },
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: subTask.isDone,
+                        onChanged: (val) {
+                          if (widget.onTodoChanged != null && val != null) {
+                            final updatedSub = subTask.copyWith(isDone: val);
+                            final updatedSubTasks = List<Todo>.from(
+                              widget.todo.subTasks,
+                            );
+                            updatedSubTasks[index] = updatedSub;
+                            final updatedTodo = widget.todo.copyWith(
+                              subTasks: updatedSubTasks,
+                            );
+                            widget.onTodoChanged!(updatedTodo);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        subTask.title,
+                        style: TextStyle(
+                          decoration: subTask.isDone
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: subTask.isDone
+                              ? Theme.of(context).disabledColor
+                              : null,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    if (widget.onPromote != null)
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, size: 16),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'promote',
+                            child: const Text('タスクに昇格'),
+                          ),
+                        ],
+                        onSelected: (value) {
+                          if (value == 'promote') {
+                            widget.onPromote!(widget.todo, subTask);
+                          }
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        if (_isExpanded)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.add, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _subTaskController,
+                    decoration: const InputDecoration(
+                      hintText: 'サブタスクを追加',
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
+                    onSubmitted: _submitSubTask,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send, size: 20),
+                  onPressed: () => _submitSubTask(_subTaskController.text),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+        if (_isExpanded) const SizedBox(height: 8),
+      ],
+    );
+
+    // サブタスクがない場合でも、スタイル付きカードを使用する。
+    // サブタスクがある場合は、Columnをラップするスタイル付きカードを使用する。
+
+    // ロジック確認: 元のコードはサブタスクがない場合に直接 _buildCardContent を返していた（そこでCardをラップしていた）。
+    // 現在はすべてを _buildStyledCard でラップする。
+
+    return _buildStyledCard(content);
+  }
+
   Widget _buildCardContent(BuildContext context, {required bool expand}) {
     final hasSubTasks = widget.todo.subTasks.isNotEmpty;
-    // If not using custom expand, we wrap in Card if called directly
-    // But here we use it inside Column or as root.
-    // Ideally this returns the ListTile.
 
-    // We need to return Card if call from build (isEmpty case).
-    // Or just return the ListTile content and wrap it in Card in build?
+    // 注記: ここではもう Card を返さず、コンテンツ (ListTile) のみを返す。
+    // ラッパーの build メソッドが Card を処理する。
 
-    Widget content = ListTile(
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16.0,
+        vertical: 8.0,
+      ),
       title: _buildTitle(),
       subtitle: _buildSubtitle(context),
-      leading: Checkbox(
-        shape: const CircleBorder(),
-        value: widget.todo.isDone,
-        onChanged: widget.onCheckboxChanged,
+      leading: Transform.scale(
+        scale: 1.2,
+        child: Checkbox(
+          shape: const CircleBorder(),
+          value: widget.todo.isDone,
+          onChanged: widget.onCheckboxChanged,
+          activeColor: Theme.of(context).primaryColor,
+        ),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (expand && hasSubTasks)
+          if (hasSubTasks)
             IconButton(
               icon: Icon(_isExpanded ? Icons.expand_less : Icons.expand_more),
               onPressed: () {
@@ -250,10 +257,13 @@ class _TodoCardState extends State<TodoCard> {
                 });
               },
             ),
-          IconButton(icon: const Icon(Icons.edit), onPressed: widget.onEdit),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 20),
+            onPressed: widget.onEdit,
+          ),
         ],
       ),
-      onTap: (expand && hasSubTasks)
+      onTap: (hasSubTasks)
           ? () {
               setState(() {
                 _isExpanded = !_isExpanded;
@@ -261,98 +271,154 @@ class _TodoCardState extends State<TodoCard> {
             }
           : null,
     );
-
-    if (!expand) {
-      // Wrap in Card if standalone
-      return Card(child: content);
-    }
-    return content;
   }
 
   Widget _buildTitle() {
-    return Text(widget.todo.title);
+    return Text(
+      widget.todo.title,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        decoration: widget.todo.isDone ? TextDecoration.lineThrough : null,
+        color: widget.todo.isDone ? Theme.of(context).disabledColor : null,
+      ),
+    );
   }
 
   Widget _buildSubtitle(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.todo.note != null)
-          Text(
-            widget.todo.note!,
-            style: TextStyle(
-              color: Theme.of(context).textTheme.bodySmall?.color,
-            ),
-            maxLines: 3,
-          ),
-        Row(
-          children: [
-            if (widget.todo.dueDate != null)
-              Text(_dateFormat.format(widget.todo.dueDate!)),
-            if (widget.todo.repeatPattern != RepeatPattern.none) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.repeat, size: 16),
-              Text(
-                widget.todo.repeatPattern.displayName,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-            const SizedBox(width: 8),
-            if (widget.todo.priority != Priority.none)
-              widget.todo.priority.badge!,
-          ],
-        ),
-        if (widget.todo.category == GtdCategory.waitingFor &&
-            widget.todo.delegatee != null) ...[
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(Icons.person, size: 16, color: Colors.blueGrey),
-              const SizedBox(width: 4),
-              Text(
-                '待ち: ${widget.todo.delegatee}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blueGrey,
+    final subTaskCount = widget.todo.subTasks.length;
+    final doneCount = widget.todo.subTasks.where((s) => s.isDone).length;
+    final progress = subTaskCount > 0 ? doneCount / subTaskCount : 0.0;
+
+    // 表示するメタデータがあるか確認
+    final hasMetadata =
+        widget.todo.dueDate != null ||
+        widget.todo.repeatPattern != RepeatPattern.none ||
+        widget.todo.priority != Priority.none ||
+        (widget.todo.category == GtdCategory.waitingFor &&
+            widget.todo.delegatee != null) ||
+        widget.todo.subTasks.isNotEmpty ||
+        (widget.todo.note != null && widget.todo.note!.isNotEmpty);
+
+    if (!hasMetadata) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.todo.note != null && widget.todo.note!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                widget.todo.note!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
+            ),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (widget.todo.dueDate != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: widget.todo.isDone
+                          ? Theme.of(context).disabledColor
+                          : (widget.todo.dueDate!.isBefore(DateTime.now()) &&
+                                    !widget.todo.isDone
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.primary),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _dateFormat.format(widget.todo.dueDate!),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: widget.todo.isDone
+                            ? Theme.of(context).disabledColor
+                            : (widget.todo.dueDate!.isBefore(DateTime.now()) &&
+                                      !widget.todo.isDone
+                                  ? Theme.of(context).colorScheme.error
+                                  : null),
+                      ),
+                    ),
+                  ],
+                ),
+              if (widget.todo.repeatPattern != RepeatPattern.none)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.repeat,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.todo.repeatPattern.displayName,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              if (widget.todo.category == GtdCategory.waitingFor &&
+                  widget.todo.delegatee != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.tertiary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '待ち: ${widget.todo.delegatee}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.tertiary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              if (subTaskCount > 0)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 2,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$doneCount/$subTaskCount',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
             ],
           ),
         ],
-        if (widget.todo.subTasks.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: LinearProgressIndicator(
-                  value:
-                      widget.todo.subTasks.where((s) => s.isDone).length /
-                      widget.todo.subTasks.length,
-                  backgroundColor: Colors.grey[200],
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).primaryColor,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${(widget.todo.subTasks.where((s) => s.isDone).length / widget.todo.subTasks.length * 100).toInt()}%',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${widget.todo.subTasks.where((st) => st.isDone).length}/${widget.todo.subTasks.length} サブタスク完了',
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).textTheme.bodySmall?.color,
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
