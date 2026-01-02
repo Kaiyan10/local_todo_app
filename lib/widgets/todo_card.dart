@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screen/todo_add_view.dart';
 import '../data/todo.dart';
 import 'package:intl/intl.dart';
 
@@ -11,12 +12,14 @@ class TodoCard extends StatefulWidget {
     required this.onEdit,
     required this.onCheckboxChanged,
     this.onTodoChanged,
+    this.onPromote,
   });
 
   final Todo todo;
   final VoidCallback onEdit;
   final ValueChanged<bool?> onCheckboxChanged;
   final Function(Todo)? onTodoChanged;
+  final Function(Todo, Todo)? onPromote;
 
   @override
   State<TodoCard> createState() => _TodoCardState();
@@ -24,6 +27,29 @@ class TodoCard extends StatefulWidget {
 
 class _TodoCardState extends State<TodoCard> {
   bool _isExpanded = false;
+  final TextEditingController _subTaskController = TextEditingController();
+
+  @override
+  void dispose() {
+    _subTaskController.dispose();
+    super.dispose();
+  }
+
+  void _submitSubTask(String value) {
+    if (value.trim().isEmpty) return;
+    if (widget.onTodoChanged == null) return;
+
+    final newSubTask = Todo(
+      title: value.trim(),
+      category: widget.todo.category,
+      priority: widget.todo.priority,
+      tags: List.from(widget.todo.tags),
+    );
+    final newSubTasks = List<Todo>.from(widget.todo.subTasks)..add(newSubTask);
+    final updatedTodo = widget.todo.copyWith(subTasks: newSubTasks);
+    widget.onTodoChanged!(updatedTodo);
+    _subTaskController.clear();
+  }
 
   @override
   // Ideally, if subtasks exist, we want the card to be expandable.
@@ -57,45 +83,138 @@ class _TodoCardState extends State<TodoCard> {
                   right: 16.0,
                   bottom: 4.0,
                 ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: Checkbox(
-                        value: subTask.isDone,
-                        onChanged: (val) {
-                          if (widget.onTodoChanged != null && val != null) {
-                            final updatedSub = subTask.copyWith(isDone: val);
-                            final updatedSubTasks = List<Todo>.from(
-                              widget.todo.subTasks,
-                            );
-                            updatedSubTasks[index] = updatedSub;
-                            final updatedTodo = widget.todo.copyWith(
-                              subTasks: updatedSubTasks,
-                            );
-                            widget.onTodoChanged!(updatedTodo);
-                          }
-                        },
+                child: InkWell(
+                  onLongPress: () {
+                    // Show menu for promotion
+                    // final RenderBox overlay =
+                    //    Overlay.of(context).context.findRenderObject()
+                    //        as RenderBox;
+                    // We need position. Actually PopupMenuButton is easier if we can put it in the layout.
+                    // But we are in a Row.
+                  },
+                  onTap: () async {
+                    if (widget.onTodoChanged == null) return;
+
+                    final updatedSubTask = await Navigator.push<Todo>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TodoAddView(todo: subTask),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        subTask.title,
-                        style: TextStyle(
-                          decoration: subTask.isDone
-                              ? TextDecoration.lineThrough
-                              : null,
-                          color: subTask.isDone ? Colors.grey : null,
-                          fontSize: 13,
+                    );
+
+                    if (updatedSubTask != null) {
+                      final updatedSubTasks = List<Todo>.from(
+                        widget.todo.subTasks,
+                      );
+                      updatedSubTasks[index] = updatedSubTask;
+                      final updatedTodo = widget.todo.copyWith(
+                        subTasks: updatedSubTasks,
+                      );
+                      widget.onTodoChanged!(updatedTodo);
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: subTask.isDone,
+                          onChanged: (val) {
+                            if (widget.onTodoChanged != null && val != null) {
+                              final updatedSub = subTask.copyWith(isDone: val);
+                              final updatedSubTasks = List<Todo>.from(
+                                widget.todo.subTasks,
+                              );
+                              updatedSubTasks[index] = updatedSub;
+                              final updatedTodo = widget.todo.copyWith(
+                                subTasks: updatedSubTasks,
+                              );
+                              widget.onTodoChanged!(updatedTodo);
+                            }
+                          },
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              subTask.title,
+                              style: TextStyle(
+                                decoration: subTask.isDone
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: subTask.isDone ? Colors.grey : null,
+                                fontSize: 13,
+                              ),
+                            ),
+                            if (subTask.dueDate != null)
+                              Text(
+                                _dateFormat.format(subTask.dueDate!),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: subTask.isDone
+                                      ? Colors.grey
+                                      : Colors.red,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (widget.onPromote != null)
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert, size: 16),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'promote',
+                              child: Text('タスクに昇格'),
+                            ),
+                          ],
+                          onSelected: (value) {
+                            if (value == 'promote') {
+                              widget.onPromote!(widget.todo, subTask);
+                            }
+                          },
+                        ),
+                    ],
+                  ),
                 ),
               );
             }).toList(),
+          if (_isExpanded)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.add, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _subTaskController,
+                      decoration: const InputDecoration(
+                        hintText: 'サブタスクを追加',
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                      onSubmitted: _submitSubTask,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.send, size: 20),
+                    onPressed: () => _submitSubTask(_subTaskController.text),
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+            ),
           if (_isExpanded) const SizedBox(height: 8),
         ],
       ),

@@ -23,6 +23,10 @@ class TodoRepository {
     return _databaseHelper.delete(id);
   }
 
+  Future<int> deleteCompletedTodos() async {
+    return _databaseHelper.deleteCompletedTodos();
+  }
+
   // Deprecated: existing code uses saveTodos with full list.
   // We can keep it or remove it. Ideally remove it to force refactor.
   // But to compile quickly, maybe I should implement it as a batch update?

@@ -11,6 +11,7 @@ class CategoryView extends StatefulWidget {
     required this.onUpdate,
     required this.onToggle,
     this.onTodoChanged,
+    this.onPromote,
   });
 
   final List<Todo> todos;
@@ -18,6 +19,7 @@ class CategoryView extends StatefulWidget {
   final VoidCallback onUpdate;
   final Function(Todo, bool?) onToggle;
   final Function(Todo)? onTodoChanged;
+  final Function(Todo, Todo)? onPromote;
 
   @override
   State<CategoryView> createState() => _CategoryViewState();
@@ -123,6 +125,7 @@ class _CategoryViewState extends State<CategoryView> {
                           widget.onToggle(todo, value);
                         },
                         onTodoChanged: widget.onTodoChanged,
+                        onPromote: widget.onPromote,
                       ),
                     ),
                   ),
@@ -202,6 +205,7 @@ class _CategoryViewState extends State<CategoryView> {
                 widget.onToggle(todo, value);
               },
               onTodoChanged: widget.onTodoChanged,
+              onPromote: widget.onPromote,
             ),
           ),
         ),

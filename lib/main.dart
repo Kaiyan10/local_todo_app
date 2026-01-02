@@ -10,6 +10,8 @@ import 'screen/settings_view.dart';
 import 'package:intl/intl.dart';
 import 'screen/today_due_view.dart';
 import 'screen/weekly_review_wizard.dart';
+import 'screen/project_dashboard_view.dart';
+import 'screen/process_inbox_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -245,6 +247,65 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  Future<void> _deleteTodo(Todo todo) async {
+    if (todo.id != null) {
+      await _repository.deleteTodo(todo.id!);
+      setState(() {
+        _todos.removeWhere((t) => t.id == todo.id);
+      });
+    }
+  }
+
+  Future<void> _promoteSubTask(Todo parent, Todo subTask) async {
+    // 1. Remove subtask from parent
+    final newSubTasks = List<Todo>.from(parent.subTasks);
+    newSubTasks.remove(subTask); // Relies on equality/reference.
+    // If remove fails (different instance), try by title/properties
+    if (newSubTasks.length == parent.subTasks.length) {
+      newSubTasks.removeWhere(
+        (t) => t.title == subTask.title && t.dueDate == subTask.dueDate,
+      );
+    }
+
+    final updatedParent = parent.copyWith(subTasks: newSubTasks);
+    await _repository.updateTodo(updatedParent);
+
+    // 2. Add subtask as new root task
+    // We need to ensure it's treated as a new task (new ID).
+    // copyWith(id: null) isn't possible because id is final String?.
+    // But we can create a new Todo from it.
+    final newTodo = Todo(
+      title: subTask.title,
+      isDone: subTask.isDone,
+      note: subTask.note,
+      dueDate: subTask.dueDate,
+      priority: subTask.priority,
+      category: subTask.category,
+      tags: subTask.tags,
+      url: subTask.url,
+      repeatPattern: subTask.repeatPattern,
+      // delegatee, etc.
+    );
+
+    final id = await _repository.addTodo(newTodo);
+
+    setState(() {
+      // Update parent in list
+      final index = _todos.indexWhere((t) => t.id == parent.id);
+      if (index != -1) {
+        _todos[index] = updatedParent;
+      }
+      // Add new task
+      _todos.add(newTodo.copyWith(id: id));
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('"${subTask.title}" をタスクに昇格しました')));
+    }
+  }
+
   // Need to handle onUpdate coming from TodoView -> CategoryView
   // Original usage: onUpdate: () { setState(() { _save(); }); }
   // Sub-widgets might modify mutable Todo fields and call onUpdate.
@@ -343,6 +404,45 @@ class _MainScreenState extends State<MainScreen> {
                 );
               },
             ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.dashboard_customize),
+              title: const Text('プロジェクト・ポートフォリオ'),
+              tileColor: Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withOpacity(0.3),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ProjectDashboard(
+                      todos: _todos,
+                      onEdit: _editTodo,
+                      onUpdate: _loadData,
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.speed),
+              title: const Text('Inbox Zero (処理)'),
+              tileColor: Theme.of(
+                context,
+              ).colorScheme.tertiaryContainer.withOpacity(0.3),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ProcessInboxView(
+                      todos: _todos,
+                      onUpdateTodo: _updateTodoDirectly,
+                      onDeleteTodo: _deleteTodo,
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -357,6 +457,7 @@ class _MainScreenState extends State<MainScreen> {
         onToggle: _toggleTodo,
         onQuickAdd: _quickAddTodo,
         onTodoChanged: _updateTodoDirectly,
+        onPromote: _promoteSubTask,
       ),
     );
   }

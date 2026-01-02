@@ -19,6 +19,7 @@ class TodoView extends StatefulWidget {
     required this.onToggle,
     required this.onQuickAdd,
     this.onTodoChanged,
+    this.onPromote,
   });
 
   final List<Todo> todos;
@@ -27,6 +28,7 @@ class TodoView extends StatefulWidget {
   final Function(Todo, bool?) onToggle;
   final Function(String) onQuickAdd;
   final Function(Todo)? onTodoChanged;
+  final Function(Todo, Todo)? onPromote;
 
   @override
   State<TodoView> createState() => _TodoViewState();
@@ -125,6 +127,7 @@ class _TodoViewState extends State<TodoView> {
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
+          onPromote: widget.onPromote,
         );
       case TodoViewMode.priority:
         return PriorityView(
@@ -133,6 +136,7 @@ class _TodoViewState extends State<TodoView> {
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
+          onPromote: widget.onPromote,
         );
       case TodoViewMode.delegated:
         return DelegatedView(
@@ -141,6 +145,7 @@ class _TodoViewState extends State<TodoView> {
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
+          onPromote: widget.onPromote,
         );
       case TodoViewMode.context:
         return ContextView(
@@ -149,6 +154,7 @@ class _TodoViewState extends State<TodoView> {
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
+          onPromote: widget.onPromote,
         );
       case TodoViewMode.dueDate:
         return DueDateView(
@@ -157,6 +163,7 @@ class _TodoViewState extends State<TodoView> {
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
+          onPromote: widget.onPromote,
         );
     }
   }

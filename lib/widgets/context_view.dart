@@ -11,6 +11,7 @@ class ContextView extends StatefulWidget {
     required this.onUpdate,
     required this.onToggle,
     this.onTodoChanged,
+    this.onPromote,
   });
 
   final List<Todo> todos;
@@ -18,6 +19,7 @@ class ContextView extends StatefulWidget {
   final VoidCallback onUpdate;
   final Function(Todo, bool?) onToggle;
   final Function(Todo)? onTodoChanged;
+  final Function(Todo, Todo)? onPromote;
 
   @override
   State<ContextView> createState() => _ContextViewState();

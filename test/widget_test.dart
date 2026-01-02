@@ -44,20 +44,24 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify we are on the Add Task screen
-    expect(find.text('Add Task'), findsOneWidget);
+    // Verify we are on the Add Task screen
+    // Title is removed, check for hint text instead or existence of TextField
+    expect(find.byType(TextField), findsWidgets);
 
     // Find text field
-    final titleFinder = find.ancestor(
-      of: find.text('タスク名'),
-      matching: find.byType(TextField),
-    );
+    final titleFinder = find.byWidgetPredicate((widget) {
+      if (widget is TextField) {
+        return widget.decoration?.hintText == 'タスク名を入力';
+      }
+      return false;
+    });
     expect(titleFinder, findsOneWidget);
 
     // Enter text
     await tester.enterText(titleFinder, 'Test New Task');
 
     // Tap Save/Add button
-    final addButtonFinder = find.byType(ElevatedButton);
+    final addButtonFinder = find.byType(FloatingActionButton);
     await tester.ensureVisible(addButtonFinder);
     await tester.tap(addButtonFinder);
     await tester.pumpAndSettle();

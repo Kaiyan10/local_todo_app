@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data/todo.dart';
 import '../data/csv_service.dart';
 import '../data/database_helper.dart';
+import '../data/todo_repository.dart';
 import '../data/settings_service.dart';
 
 class SettingsView extends StatelessWidget {
@@ -161,6 +162,55 @@ class SettingsView extends StatelessWidget {
                           content: Text('${newTodos.length} 件のタスクをインポートしました'),
                         ),
                       );
+                    }
+                  }
+                },
+              ),
+              SettingsTile.navigation(
+                leading: const Icon(Icons.delete_forever),
+                title: const Text('完了済みタスクを削除'),
+                onPressed: (context) async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('完了済みタスクの削除'),
+                      content: const Text(
+                        '完了済みのタスクをすべて削除します。\nこの操作は取り消せません。よろしいですか？',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('キャンセル'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
+                          ),
+                          child: const Text('削除する'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirmed == true) {
+                    try {
+                      final count = await TodoRepository()
+                          .deleteCompletedTodos();
+                      onReload(); // Reload UI
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('$count 件のタスクを削除しました')),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('削除エラー: $e')));
+                      }
                     }
                   }
                 },

@@ -63,4 +63,12 @@ class MockTodoRepository extends _i1.Mock implements _i2.TodoRepository {
             returnValue: _i3.Future<int>.value(0),
           )
           as _i3.Future<int>);
+
+  @override
+  _i3.Future<int> deleteCompletedTodos() =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteCompletedTodos, []),
+            returnValue: _i3.Future<int>.value(0),
+          )
+          as _i3.Future<int>);
 }

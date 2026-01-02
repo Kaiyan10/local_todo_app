@@ -21,7 +21,7 @@ class _TodoAddViewState extends State<TodoAddView> {
   GtdCategory _category = GtdCategory.inbox;
   RepeatPattern _repeatPattern = RepeatPattern.none;
   DateTime? _dueDate;
-  List<Todo> _subTasks = [];
+  List<SubTaskWrapper> _subTasks = [];
   final _subTaskController = TextEditingController();
   final _delegateeController = TextEditingController();
 
@@ -40,7 +40,7 @@ class _TodoAddViewState extends State<TodoAddView> {
       }
       _tagsController.text = t.tags.join(', ');
       _noteController.text = t.note ?? '';
-      _subTasks = List.from(t.subTasks);
+      _subTasks = t.subTasks.map((e) => SubTaskWrapper(e)).toList();
       _delegateeController.text = t.delegatee ?? '';
     }
   }
@@ -76,7 +76,7 @@ class _TodoAddViewState extends State<TodoAddView> {
             ? null
             : _noteController.text.trim(),
         isDone: widget.todo?.isDone ?? false,
-        subTasks: _subTasks,
+        subTasks: _subTasks.map((e) => e.todo).toList(),
         delegatee:
             _category == GtdCategory.waitingFor &&
                 _delegateeController.text.trim().isNotEmpty
@@ -91,7 +91,20 @@ class _TodoAddViewState extends State<TodoAddView> {
     final text = _subTaskController.text.trim();
     if (text.isNotEmpty) {
       setState(() {
-        _subTasks.add(Todo(title: text)); // Create Todo instead of SubTask
+        _subTasks.add(
+          SubTaskWrapper(
+            Todo(
+              title: text,
+              category: _category,
+              priority: _priority,
+              tags: _tagsController.text
+                  .split(',')
+                  .map((e) => e.trim())
+                  .where((e) => e.isNotEmpty)
+                  .toList(),
+            ),
+          ),
+        ); // Create Todo instead of SubTask
         _subTaskController.clear();
       });
     }
@@ -437,47 +450,95 @@ class _TodoAddViewState extends State<TodoAddView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (_subTasks.isNotEmpty)
-                            ListView.separated(
+                            ReorderableListView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: _subTasks.length,
-                              separatorBuilder: (context, index) =>
-                                  const Divider(height: 1),
+                              onReorder: (int oldIndex, int newIndex) {
+                                setState(() {
+                                  if (oldIndex < newIndex) {
+                                    newIndex -= 1;
+                                  }
+                                  final item = _subTasks.removeAt(oldIndex);
+                                  _subTasks.insert(newIndex, item);
+                                });
+                              },
                               itemBuilder: (context, index) {
-                                final subTask = _subTasks[index];
-                                return ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: Checkbox(
-                                    value: subTask.isDone,
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _subTasks[index] = subTask.copyWith(
-                                          isDone: val ?? false,
-                                        );
-                                      });
-                                    },
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  title: Text(
-                                    subTask.title,
-                                    style: TextStyle(
-                                      decoration: subTask.isDone
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                      color: subTask.isDone
-                                          ? Colors.grey
-                                          : null,
+                                final wrapper = _subTasks[index];
+                                final subTask = wrapper.todo;
+                                return Column(
+                                  key: wrapper.key,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ReorderableDragStartListener(
+                                            index: index,
+                                            child: const Padding(
+                                              padding: EdgeInsets.only(
+                                                right: 8.0,
+                                              ),
+                                              child: Icon(
+                                                Icons.drag_handle,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                          Checkbox(
+                                            value: subTask.isDone,
+                                            onChanged: (val) {
+                                              setState(() {
+                                                wrapper.todo = subTask.copyWith(
+                                                  isDone: val ?? false,
+                                                );
+                                              });
+                                            },
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                        ],
+                                      ),
+                                      title: Text(
+                                        subTask.title,
+                                        style: TextStyle(
+                                          decoration: subTask.isDone
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          color: subTask.isDone
+                                              ? Colors.grey
+                                              : null,
+                                        ),
+                                      ),
+                                      trailing: IconButton(
+                                        icon: const Icon(Icons.close, size: 18),
+                                        onPressed: () {
+                                          setState(() {
+                                            _subTasks.removeAt(index);
+                                          });
+                                        },
+                                      ),
+                                      onTap: () async {
+                                        final updated =
+                                            await Navigator.push<Todo>(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    TodoAddView(todo: subTask),
+                                              ),
+                                            );
+                                        if (updated != null) {
+                                          setState(() {
+                                            wrapper.todo = updated;
+                                          });
+                                        }
+                                      },
                                     ),
-                                  ),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.close, size: 18),
-                                    onPressed: () {
-                                      setState(() {
-                                        _subTasks.removeAt(index);
-                                      });
-                                    },
-                                  ),
+                                    const Divider(height: 1),
+                                  ],
                                 );
                               },
                             ),
@@ -573,4 +634,10 @@ class _TodoAddViewState extends State<TodoAddView> {
       ],
     );
   }
+}
+
+class SubTaskWrapper {
+  final Key key;
+  Todo todo;
+  SubTaskWrapper(this.todo) : key = UniqueKey();
 }

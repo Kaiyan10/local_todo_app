@@ -331,6 +331,24 @@ class DatabaseHelper {
     return await db.delete('todos', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<int> deleteCompletedTodos() async {
+    final db = await instance.database;
+    // 1. Get all completed todos
+    final result = await db.query(
+      'todos',
+      columns: ['id'],
+      where: 'isDone = 1',
+    );
+
+    int count = 0;
+    for (var row in result) {
+      final id = row['id'] as int;
+      // Use existing delete method to ensure children are also deleted
+      count += await delete(id);
+    }
+    return count;
+  }
+
   // Backup/Restore utilities
   Future<String> getDatabasePath() async {
     final dbPath = await getDatabasesPath();

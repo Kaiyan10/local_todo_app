@@ -82,6 +82,14 @@ class MockDatabaseHelper extends _i1.Mock implements _i3.DatabaseHelper {
           as _i4.Future<int>);
 
   @override
+  _i4.Future<int> deleteCompletedTodos() =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteCompletedTodos, []),
+            returnValue: _i4.Future<int>.value(0),
+          )
+          as _i4.Future<int>);
+
+  @override
   _i4.Future<String> getDatabasePath() =>
       (super.noSuchMethod(
             Invocation.method(#getDatabasePath, []),

@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../data/todo.dart';
 import '../widgets/todo_card.dart';
 
-class TodayDueView extends StatelessWidget {
+class TodayDueView extends StatefulWidget {
   const TodayDueView({
     super.key,
     required this.todos,
@@ -19,13 +19,25 @@ class TodayDueView extends StatelessWidget {
   final Function(Todo) onTodoChanged;
 
   @override
+  State<TodayDueView> createState() => _TodayDueViewState();
+}
+
+class _TodayDueViewState extends State<TodayDueView> {
+  // We use the parent's list, but rebuild when we optimistic update.
+  // Ideally we should make a local copy if we want isolated state,
+  // but we want to reflect parent changes too if they happen.
+  // Since we don't get stream of updates, relying on setState to simple rebuild
+  // with current logic is enough for immediate feedback.
+
+  @override
   Widget build(BuildContext context) {
+    // Re-calculate derived lists on every build
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final yesterdayStart = todayStart.subtract(const Duration(days: 1));
 
-    // 1. Blockers: Uncompleted AND (Overdue OR High Priority)
-    final blockers = todos.where((todo) {
+    // 1. Blockers
+    final blockers = widget.todos.where((todo) {
       if (todo.isDone) return false;
       final isHigh = todo.priority == Priority.high;
       final isOverdue =
@@ -33,10 +45,10 @@ class TodayDueView extends StatelessWidget {
       return isHigh || isOverdue;
     }).toList();
 
-    // 2. Today's Plan: Uncompleted AND (Due Today OR Next Action) AND Not in Blockers
-    final todaysPlan = todos.where((todo) {
+    // 2. Today's Plan
+    final todaysPlan = widget.todos.where((todo) {
       if (todo.isDone) return false;
-      if (blockers.contains(todo)) return false; // Avoid duplicates
+      if (blockers.contains(todo)) return false;
 
       final isDueToday =
           todo.dueDate != null &&
@@ -49,19 +61,13 @@ class TodayDueView extends StatelessWidget {
       return isDueToday || isNextAction;
     }).toList();
 
-    // 3. Yesterday's Wins: Completed AND Completed Date was Yesterday
-    // (Also including Today's completions for "What I did today" context if needed, but requirements say Yesterday)
-    // Actually standard daily standup is "What I did Yesterday".
-    final yesterdaysWins = todos.where((todo) {
+    // 3. Yesterday's Wins
+    final yesterdaysWins = widget.todos.where((todo) {
       if (!todo.isDone || todo.lastCompletedDate == null) return false;
       return todo.lastCompletedDate!.isAfter(yesterdayStart) &&
           todo.lastCompletedDate!.isBefore(
             todayStart.add(const Duration(days: 1)),
           );
-      // Note: isBefore(tomorrow) covers today too.
-      // Strict yesterday would be isBefore(todayStart).
-      // But typically "Since last standup" includes today morning.
-      // Let's stick to strict yesterday + today for safety so recent wins invoke pride.
     }).toList();
 
     return Scaffold(
@@ -140,9 +146,38 @@ class TodayDueView extends StatelessWidget {
           ...sectionTodos.map(
             (todo) => TodoCard(
               todo: todo,
-              onEdit: () => onEdit(todo),
-              onCheckboxChanged: (value) => onToggle(todo, value),
-              onTodoChanged: onTodoChanged,
+              onEdit: () => widget.onEdit(todo),
+              onCheckboxChanged: (value) {
+                // Optimistic update for immediate UI response
+                setState(() {
+                  // We rely on MainScreen state update eventually,
+                  // but triggering setState here ensures we re-render
+                  // with the potentially mutated todo object if shared,
+                  // or at least gives immediate feedback if we manually toggle simple states.
+                  // Since Todo is mutable (isDone is mutable), we can update it locally first.
+
+                  // For simple toggle (non-recurrence), modifying isDone is safe.
+                  // For recurrence, MainScreen handles it.
+                  // We invoke onToggle.
+
+                  // NOTE: MainScreen toggle logic calls setState.
+                  // If we want immediate visual update here, we can set isDone if it's not recurrence logic.
+                  // But to be safe and simple, just calling setState() after onToggle invocation *might* be enough
+                  // if onToggle is sync or modifying the object reference we hold.
+                  // However, onToggle in main.dart is async.
+
+                  // Optimistic approach:
+                  todo.isDone = value ?? false;
+                });
+
+                // Invoke actual logic
+                // Pass callback to ensure state consistency later
+                widget.onToggle(todo, value);
+              },
+              onTodoChanged: (updatedTodo) {
+                widget.onTodoChanged(updatedTodo);
+                setState(() {}); // Rebuild to reflect subtask changes
+              },
             ),
           ),
       ],

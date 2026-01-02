@@ -61,5 +61,19 @@ void main() {
       expect(result, 1);
       verify(mockDatabaseHelper.delete(id)).called(1);
     });
+
+    test(
+      'deleteCompletedTodos calls deleteCompletedTodos on database',
+      () async {
+        when(
+          mockDatabaseHelper.deleteCompletedTodos(),
+        ).thenAnswer((_) async => 5);
+
+        final result = await repository.deleteCompletedTodos();
+
+        expect(result, 5);
+        verify(mockDatabaseHelper.deleteCompletedTodos()).called(1);
+      },
+    );
   });
 }

@@ -10,6 +10,7 @@ class DelegatedView extends StatefulWidget {
     required this.onUpdate,
     required this.onToggle,
     this.onTodoChanged,
+    this.onPromote,
   });
 
   final List<Todo> todos;
@@ -17,6 +18,7 @@ class DelegatedView extends StatefulWidget {
   final VoidCallback onUpdate;
   final Function(Todo, bool?) onToggle;
   final Function(Todo)? onTodoChanged;
+  final Function(Todo, Todo)? onPromote;
 
   @override
   State<DelegatedView> createState() => _DelegatedViewState();
@@ -114,6 +116,7 @@ class _DelegatedViewState extends State<DelegatedView> {
                     onEdit: () => widget.onEdit(todo),
                     onCheckboxChanged: (val) => widget.onToggle(todo, val),
                     onTodoChanged: widget.onTodoChanged,
+                    onPromote: widget.onPromote,
                   ),
                 )
                 .toList(),
