@@ -1,32 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/todo.dart';
+import '../providers/todo_providers.dart';
 import 'todo_card.dart';
+import 'package:intl/intl.dart';
 
-class DelegatedView extends StatefulWidget {
+class DelegatedView extends ConsumerStatefulWidget {
   const DelegatedView({
     super.key,
     required this.todos,
     required this.onEdit,
-    required this.onUpdate,
-    required this.onToggle,
-    this.onTodoChanged,
-    this.onPromote,
-    this.onDelete,
   });
 
   final List<Todo> todos;
   final Function(Todo) onEdit;
-  final VoidCallback onUpdate;
-  final Function(Todo, bool?) onToggle;
-  final Function(Todo)? onTodoChanged;
-  final Function(Todo, Todo)? onPromote;
-  final Function(Todo)? onDelete;
 
   @override
-  State<DelegatedView> createState() => _DelegatedViewState();
+  ConsumerState<DelegatedView> createState() => _DelegatedViewState();
 }
 
-class _DelegatedViewState extends State<DelegatedView> {
+class _DelegatedViewState extends ConsumerState<DelegatedView> {
   late List<Todo> _delegatedTodos;
   late Map<String, List<Todo>> _groupedTodos;
   late List<String> _sortedKeys;
@@ -66,6 +59,41 @@ class _DelegatedViewState extends State<DelegatedView> {
     _sortedKeys = _groupedTodos.keys.toList()..sort();
   }
 
+  Future<void> _toggleTodo(Todo todo, bool? value) async {
+    final notifier = ref.read(todoListProvider.notifier);
+    final nextDate = await notifier.toggleTodo(todo, value);
+    
+    if (nextDate != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '次のタスクを作成しました: ${DateFormat.yMd().format(nextDate)}',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _updateTodo(Todo todo) async {
+    await ref.read(todoListProvider.notifier).updateTodo(todo);
+  }
+
+  Future<void> _deleteTodo(Todo todo) async {
+    if (todo.id != null) {
+      await ref.read(todoListProvider.notifier).deleteTodo(todo.id!);
+    }
+  }
+
+  Future<void> _promoteSubTask(Todo parent, Todo subTask) async {
+    await ref.read(todoListProvider.notifier).promoteSubTask(parent, subTask);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${subTask.title}" をタスクに昇格しました')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_delegatedTodos.isEmpty) {
@@ -96,7 +124,6 @@ class _DelegatedViewState extends State<DelegatedView> {
         return DragTarget<Todo>(
           onWillAccept: (data) => data != null, // Accept any todo
           onAccept: (data) {
-            if (widget.onTodoChanged != null) {
               // Assign to this delegatee
               final isUnassigned = delegatee == '担当者なし';
               final updatedTodo = data.copyWith(
@@ -104,8 +131,7 @@ class _DelegatedViewState extends State<DelegatedView> {
                 resetDelegatee: isUnassigned,
                 categoryId: 'waitingFor', // Implicitly ensure it's in Waiting For
               );
-              widget.onTodoChanged!(updatedTodo);
-            }
+              _updateTodo(updatedTodo);
           },
           builder: (context, candidateData, rejectedData) {
             final isHovering = candidateData.isNotEmpty;
@@ -188,10 +214,10 @@ class _DelegatedViewState extends State<DelegatedView> {
                               child: TodoCard(
                                 todo: todo,
                                 onEdit: () => widget.onEdit(todo),
-                                onCheckboxChanged: (val) => widget.onToggle(todo, val),
-                                onTodoChanged: widget.onTodoChanged,
-                                onPromote: widget.onPromote,
-                                onDelete: widget.onDelete,
+                                onCheckboxChanged: (val) => _toggleTodo(todo, val),
+                                onTodoChanged: _updateTodo,
+                                onPromote: _promoteSubTask,
+                                onDelete: _deleteTodo,
                               ),
                             ),
                           ],

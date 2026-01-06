@@ -76,20 +76,20 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delegate Task'),
+        title: const Text('タスクを依頼する'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'Who is responsible?'),
+          decoration: const InputDecoration(labelText: '誰に依頼する?'),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('キャンセル'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Delegate'),
+            child: const Text('依頼する'),
           ),
         ],
       ),
@@ -128,7 +128,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
             ),
             ListTile(
               leading: const Icon(Icons.next_plan),
-              title: const Text('Next Action (Do it ASAP)'),
+              title: const Text('Next Action (ASAPでやる)'),
               onTap: () {
                 Navigator.pop(ctx);
                 _updateCategory(todo, 'nextAction');
@@ -136,7 +136,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
             ),
             ListTile(
               leading: const Icon(Icons.folder),
-              title: const Text('Project (Requires multiple steps)'),
+              title: const Text('Project (複数の手順が必要)'),
               onTap: () {
                 Navigator.pop(ctx);
                 _updateCategory(todo, 'project');
@@ -144,7 +144,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
             ),
             ListTile(
               leading: const Icon(Icons.calendar_month),
-              title: const Text('Schedule (Set Due Date)'),
+              title: const Text('Schedule (実施日付を設定する)'),
               onTap: () async {
                 Navigator.pop(ctx);
                 final date = await showDatePicker(
@@ -299,7 +299,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
                           const SizedBox(height: 16),
                           Container(
                             padding: const EdgeInsets.all(12),
-                            color: Colors.grey[100],
+                            color: Colors.grey[900],
                             child: Text(
                               todo.note!,
                               style: Theme.of(context).textTheme.bodyMedium,
@@ -318,7 +318,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
                         const Divider(),
                         const SizedBox(height: 16),
                         Text(
-                          'Does this take < 2 mins?',
+                          'このタスクは2分以内で完了できますか？',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.grey[600]),
                         ),
@@ -340,25 +340,25 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
                     children: [
                       _ActionButton(
                         icon: Icons.timer,
-                        label: 'Do It\n(<2min)',
+                        label: '今すぐやる\n(<2min)',
                         color: Colors.green,
                         onTap: _processDo,
                       ),
                       _ActionButton(
                         icon: Icons.person_add,
-                        label: 'Delegate',
+                        label: '対応待ちにする',
                         color: Colors.blue,
                         onTap: _processDelegate,
                       ),
                       _ActionButton(
                         icon: Icons.schedule,
-                        label: 'Defer',
+                        label: '後でやる',
                         color: Colors.orange,
                         onTap: _processDefer,
                       ),
                       _ActionButton(
                         icon: Icons.delete,
-                        label: 'Delete',
+                        label: '削除する',
                         color: Colors.red,
                         onTap: _processDelete,
                       ),

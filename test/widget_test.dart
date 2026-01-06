@@ -7,6 +7,8 @@ import 'package:flutter_todo/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_todo/data/settings_service.dart';
 import 'package:flutter_todo/data/todo_repository.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_todo/providers/todo_providers.dart';
 
 @GenerateMocks([TodoRepository])
 import 'widget_test.mocks.dart';
@@ -33,7 +35,14 @@ void main() {
     when(mockRepository.addTodo(any)).thenAnswer((_) async => 1);
 
     // Build our app and trigger a frame.
-    await tester.pumpWidget(TodoApp(todoRepository: mockRepository));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          todoRepositoryProvider.overrideWithValue(mockRepository),
+        ],
+        child: const TodoApp(),
+      ),
+    );
 
     // Verify FAB is present
     expect(find.byIcon(Icons.add), findsOneWidget);
@@ -66,7 +75,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify we are back on the dashboard
-    expect(find.text('Local Todo'), findsOneWidget); // AppBar title
+    expect(find.text('localTodo'), findsOneWidget); // AppBar title
 
     // Verify the new task is displayed
     // Note: Since we mock addTodo/loadTodos, the UI state update depends on MainScreen logic.

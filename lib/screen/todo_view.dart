@@ -1,180 +1,139 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/todo.dart';
-import '../data/settings_service.dart';
+import '../providers/todo_providers.dart';
 import '../widgets/category_view.dart';
 import '../widgets/priority_view.dart';
 import '../widgets/due_date_view.dart';
-import '../widgets/context_view.dart';
-import '../widgets/quick_add_input.dart';
 import '../widgets/delegated_view.dart';
+import '../widgets/context_view.dart';
 
-enum TodoViewMode { category, priority, context, delegated, dueDate }
-
-class TodoView extends StatefulWidget {
+class TodoView extends ConsumerStatefulWidget {
   const TodoView({
     super.key,
     required this.todos,
-    required this.onUpdate,
     required this.onEdit,
-    required this.onToggle,
-    required this.onQuickAdd,
-    this.onTodoChanged,
-    this.onPromote,
-    this.onDelete,
-    this.onLoadCompleted,
   });
 
   final List<Todo> todos;
-  final VoidCallback onUpdate;
   final Function(Todo) onEdit;
-  final Function(Todo, bool?) onToggle;
-  final Function(String) onQuickAdd;
-  final Function(Todo)? onTodoChanged;
-  final Function(Todo, Todo)? onPromote;
-  final Function(Todo)? onDelete;
-  final VoidCallback? onLoadCompleted;
 
   @override
-  State<TodoView> createState() => _TodoViewState();
+  ConsumerState<TodoView> createState() => _TodoViewState();
 }
 
-class _TodoViewState extends State<TodoView> {
-  TodoViewMode _viewMode = TodoViewMode.category;
-  bool _showDone = false;
+class _TodoViewState extends ConsumerState<TodoView> {
+  int _selectedIndex = 0; // 0: Category, 1: Priority, 2: Due Date, 3: Delegated, 4: Context
+  final TextEditingController _quickAddController = TextEditingController();
+
+  @override
+  void dispose() {
+    _quickAddController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleQuickAdd(String value) async {
+    if (value.isNotEmpty) {
+      final newTodo = Todo(title: value, categoryId: 'inbox');
+      await ref.read(todoListProvider.notifier).addTodo(newTodo);
+      _quickAddController.clear();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // View Switcher (Segmented Button)
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: SegmentedButton<TodoViewMode>(
-            showSelectedIcon: false,
-            expandedInsets: EdgeInsets.all(5.0),
-            style: ButtonStyle(),
-            segments: [
+          padding: const EdgeInsets.all(8.0),
+          child: SegmentedButton<int>(
+            segments: const [
               ButtonSegment(
-                value: TodoViewMode.category,
-                label: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('カテゴリ'),
-                ),
+                value: 0,
+                label: Text('カテゴリ'),
+                icon: Icon(Icons.category),
               ),
               ButtonSegment(
-                value: TodoViewMode.priority,
-                label: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('優先度'),
-                ),
+                value: 1,
+                label: Text('優先度'),
+                icon: Icon(Icons.flag),
               ),
               ButtonSegment(
-                value: TodoViewMode.delegated,
-                label: Padding(padding: EdgeInsets.all(8.0), child: Text('委任')),
+                value: 2,
+                label: Text('期限'),
+                icon: Icon(Icons.calendar_today),
               ),
               ButtonSegment(
-                value: TodoViewMode.context,
-                label: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('@Context'),
-                ),
+                value: 3,
+                label: Text('対応待ち'),
+                icon: Icon(Icons.people),
               ),
               ButtonSegment(
-                value: TodoViewMode.dueDate,
-                label: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('期限日'),
-                ),
+                value: 4,
+                label: Text('Context'),
+                icon: Icon(Icons.label),
               ),
             ],
-            selected: {_viewMode},
-            onSelectionChanged: (Set<TodoViewMode> newSelection) {
+            selected: {_selectedIndex},
+            onSelectionChanged: (Set<int> newSelection) {
               setState(() {
-                _viewMode = newSelection.first;
+                _selectedIndex = newSelection.first;
               });
             },
+            showSelectedIcon: false,
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              padding: MaterialStateProperty.all(EdgeInsets.zero),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
           ),
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Expanded(child: QuickAddInput(onAdd: widget.onQuickAdd)),
-            SizedBox(width: 10),
-            const Text('対応済も表示'),
-            Switch(
-              value: _showDone,
-              onChanged: (value) {
-                setState(() {
-                  _showDone = value;
-                });
-                if (value) {
-                  widget.onLoadCompleted?.call();
-                }
-              },
+        
+        // Quick Add Field
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: TextField(
+            controller: _quickAddController,
+            decoration: InputDecoration(
+              hintText: 'Quick Add (Enter to add to Inbox)',
+              prefixIcon: const Icon(Icons.add),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20),
             ),
-          ],
+            onSubmitted: _handleQuickAdd,
+          ),
         ),
 
-        const SizedBox(height: 8),
-
-        Expanded(child: _buildBody()),
-      ],
-    );
-  }
-
-  Widget _buildBody() {
-    final displayTodos = _showDone
-        ? widget.todos
-        : widget.todos.where((t) => !t.isDone).toList();
-
-    // Mapping TodoViewMode enum index to widgets
-    // Enum order: { category, priority, context, delegated, dueDate }
-    return IndexedStack(
-      index: _viewMode.index,
-      children: [
-        CategoryView(
-          todos: displayTodos,
-          onEdit: widget.onEdit,
-          onUpdate: widget.onUpdate,
-          onToggle: widget.onToggle,
-          onTodoChanged: widget.onTodoChanged,
-          onPromote: widget.onPromote,
-          onDelete: widget.onDelete,
-        ),
-        PriorityView(
-          todos: displayTodos,
-          onEdit: widget.onEdit,
-          onUpdate: widget.onUpdate,
-          onToggle: widget.onToggle,
-          onTodoChanged: widget.onTodoChanged,
-          onPromote: widget.onPromote,
-          onDelete: widget.onDelete,
-        ),
-        ContextView(
-          todos: displayTodos,
-          onEdit: widget.onEdit,
-          onUpdate: widget.onUpdate,
-          onToggle: widget.onToggle,
-          onTodoChanged: widget.onTodoChanged,
-          onPromote: widget.onPromote,
-          onDelete: widget.onDelete,
-        ),
-        DelegatedView(
-          todos: displayTodos,
-          onEdit: widget.onEdit,
-          onUpdate: widget.onUpdate,
-          onToggle: widget.onToggle,
-          onTodoChanged: widget.onTodoChanged,
-          onPromote: widget.onPromote,
-          onDelete: widget.onDelete,
-        ),
-        DueDateView(
-          todos: displayTodos,
-          onEdit: widget.onEdit,
-          onUpdate: widget.onUpdate,
-          onToggle: widget.onToggle,
-          onTodoChanged: widget.onTodoChanged,
-          onPromote: widget.onPromote,
-          onDelete: widget.onDelete,
+        // Main Content (IndexedStack for KeepAlive)
+        Expanded(
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: [
+              CategoryView(
+                todos: widget.todos,
+                onEdit: widget.onEdit,
+              ),
+              PriorityView(
+                todos: widget.todos,
+                onEdit: widget.onEdit,
+              ),
+              DueDateView(
+                todos: widget.todos,
+                onEdit: widget.onEdit,
+              ),
+              DelegatedView(
+                todos: widget.todos,
+                onEdit: widget.onEdit,
+              ),
+              ContextView(
+                todos: widget.todos,
+                onEdit: widget.onEdit,
+              ),
+            ],
+          ),
         ),
       ],
     );

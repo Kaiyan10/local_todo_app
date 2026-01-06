@@ -1,32 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/todo.dart';
+import '../providers/todo_providers.dart';
 import 'todo_card.dart';
+import 'package:intl/intl.dart';
 
-class DueDateView extends StatefulWidget {
+class DueDateView extends ConsumerStatefulWidget {
   const DueDateView({
     super.key,
     required this.todos,
     required this.onEdit,
-    required this.onUpdate,
-    required this.onToggle,
-    this.onTodoChanged,
-    this.onPromote,
-    this.onDelete,
   });
 
   final List<Todo> todos;
   final Function(Todo) onEdit;
-  final VoidCallback onUpdate;
-  final Function(Todo, bool?) onToggle;
-  final Function(Todo)? onTodoChanged;
-  final Function(Todo, Todo)? onPromote;
-  final Function(Todo)? onDelete;
 
   @override
-  State<DueDateView> createState() => _DueDateViewState();
+  ConsumerState<DueDateView> createState() => _DueDateViewState();
 }
 
-class _DueDateViewState extends State<DueDateView> {
+class _DueDateViewState extends ConsumerState<DueDateView> {
   late List<MapEntry<String, List<Todo>>> _sections;
 
   @override
@@ -92,6 +85,41 @@ class _DueDateViewState extends State<DueDateView> {
     ];
   }
 
+  Future<void> _toggleTodo(Todo todo, bool? value) async {
+    final notifier = ref.read(todoListProvider.notifier);
+    final nextDate = await notifier.toggleTodo(todo, value);
+    
+    if (nextDate != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '次のタスクを作成しました: ${DateFormat.yMd().format(nextDate)}',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _updateTodo(Todo todo) async {
+    await ref.read(todoListProvider.notifier).updateTodo(todo);
+  }
+
+  Future<void> _deleteTodo(Todo todo) async {
+    if (todo.id != null) {
+      await ref.read(todoListProvider.notifier).deleteTodo(todo.id!);
+    }
+  }
+
+  Future<void> _promoteSubTask(Todo parent, Todo subTask) async {
+    await ref.read(todoListProvider.notifier).promoteSubTask(parent, subTask);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${subTask.title}" をタスクに昇格しました')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
@@ -121,13 +149,10 @@ class _DueDateViewState extends State<DueDateView> {
               newDate = null;
             }
             
-            if (widget.onTodoChanged != null) {
-              final updatedTodo = data.copyWith(dueDate: newDate, resetDueDate: newDate == null);
-              widget.onTodoChanged!(updatedTodo);
-            }
+            final updatedTodo = data.copyWith(dueDate: newDate, resetDueDate: newDate == null);
+            _updateTodo(updatedTodo);
           },
           builder: (context, candidateData, rejectedData) {
-            // ... Rest of the builder code remains same logic but updated variables
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -200,11 +225,11 @@ class _DueDateViewState extends State<DueDateView> {
                             todo: todo,
                             onEdit: () => widget.onEdit(todo),
                             onCheckboxChanged: (value) {
-                              widget.onToggle(todo, value);
+                              _toggleTodo(todo, value);
                             },
-                            onTodoChanged: widget.onTodoChanged,
-                            onPromote: widget.onPromote,
-                            onDelete: widget.onDelete,
+                            onTodoChanged: _updateTodo,
+                            onPromote: _promoteSubTask,
+                            onDelete: _deleteTodo,
                           ),
                         ),
                       ],

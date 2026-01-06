@@ -1,38 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/todo.dart';
+import '../providers/todo_providers.dart';
 import 'todo_card.dart';
+import 'package:intl/intl.dart';
 
-class PriorityView extends StatefulWidget {
+class PriorityView extends ConsumerStatefulWidget {
   const PriorityView({
     super.key,
     required this.todos,
     required this.onEdit,
-    required this.onUpdate,
-    required this.onToggle,
-    this.onTodoChanged,
-    this.onPromote,
-    this.onDelete,
   });
 
   final List<Todo> todos;
   final Function(Todo) onEdit;
-  final VoidCallback onUpdate;
-  final Function(Todo, bool?) onToggle;
-  final Function(Todo)? onTodoChanged;
-  final Function(Todo, Todo)? onPromote;
-  final Function(Todo)? onDelete;
 
   @override
-  State<PriorityView> createState() => _PriorityViewState();
+  ConsumerState<PriorityView> createState() => _PriorityViewState();
 }
 
-class _PriorityViewState extends State<PriorityView> {
+class _PriorityViewState extends ConsumerState<PriorityView> {
+  final ScrollController _scrollController = ScrollController();
   late Map<Priority, List<Todo>> _groupedTodos;
 
   @override
   void initState() {
     super.initState();
     _groupTodos();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      ref.read(todoListProvider.notifier).loadCompletedHistory();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -59,6 +66,41 @@ class _PriorityViewState extends State<PriorityView> {
     }
   }
 
+  Future<void> _toggleTodo(Todo todo, bool? value) async {
+    final notifier = ref.read(todoListProvider.notifier);
+    final nextDate = await notifier.toggleTodo(todo, value);
+    
+    if (nextDate != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '次のタスクを作成しました: ${DateFormat.yMd().format(nextDate)}',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _updateTodo(Todo todo) async {
+    await ref.read(todoListProvider.notifier).updateTodo(todo);
+  }
+
+  Future<void> _deleteTodo(Todo todo) async {
+    if (todo.id != null) {
+      await ref.read(todoListProvider.notifier).deleteTodo(todo.id!);
+    }
+  }
+
+  Future<void> _promoteSubTask(Todo parent, Todo subTask) async {
+    await ref.read(todoListProvider.notifier).promoteSubTask(parent, subTask);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${subTask.title}" をタスクに昇格しました')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Sort priorities: High -> Medium -> Low -> None
@@ -70,6 +112,7 @@ class _PriorityViewState extends State<PriorityView> {
     ];
 
     return ListView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.only(bottom: 120),
       itemCount: priorities.length,
       itemBuilder: (context, index) {
@@ -79,10 +122,8 @@ class _PriorityViewState extends State<PriorityView> {
         return DragTarget<Todo>(
           onWillAccept: (data) => data != null && data.priority != priority,
           onAccept: (data) {
-            if (widget.onTodoChanged != null) {
-              final updatedTodo = data.copyWith(priority: priority);
-              widget.onTodoChanged!(updatedTodo);
-            }
+             final updatedTodo = data.copyWith(priority: priority);
+             _updateTodo(updatedTodo);
           },
           builder: (context, candidateData, rejectedData) {
             return Column(
@@ -155,11 +196,11 @@ class _PriorityViewState extends State<PriorityView> {
                             todo: todo,
                             onEdit: () => widget.onEdit(todo),
                             onCheckboxChanged: (value) {
-                              widget.onToggle(todo, value);
+                              _toggleTodo(todo, value);
                             },
-                            onTodoChanged: widget.onTodoChanged,
-                            onPromote: widget.onPromote,
-                            onDelete: widget.onDelete,
+                            onTodoChanged: _updateTodo,
+                            onPromote: _promoteSubTask,
+                            onDelete: _deleteTodo,
                           ),
                         ),
                       ],
