@@ -156,16 +156,23 @@ class DatabaseHelper {
 
     for (var json in result) {
       // Temporary Todo object, assuming empty subtasks for now
-      final todo = _rowToTodo(json);
-      if (todo.id != null) {
-        todoMap[todo.id!] = todo;
-      }
+      try {
+        final todo = _rowToTodo(json);
+        if (todo.id != null) {
+          todoMap[todo.id!] = todo;
+        }
 
-      final parentId = json['parentId'] as int?;
-      if (parentId != null) {
-        childMap.putIfAbsent(parentId, () => []).add(todo);
-      } else {
-        roots.add(todo);
+        final parentId = json['parentId'] as int?;
+        if (parentId != null) {
+          childMap.putIfAbsent(parentId, () => []).add(todo);
+        } else {
+          roots.add(todo);
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error parsing todo from DB: ${json['id']}, error: $e');
+        }
+        // Skip corrupted item
       }
     }
 

@@ -86,19 +86,24 @@ class _DueDateViewState extends State<DueDateView> {
           onAccept: (data) {
             DateTime? newDate;
             final now = DateTime.now();
+            final today = DateTime(now.year, now.month, now.day);
+            
             if (title == '今日') {
-              newDate = now;
+              newDate = today;
             } else if (title == '明日') {
-              newDate = now.add(const Duration(days: 1));
+              newDate = today.add(const Duration(days: 1));
             } else if (title == '期限切れ') {
-              newDate = now.subtract(const Duration(days: 1));
+              newDate = today.subtract(const Duration(days: 1));
             } else if (title == '以降') {
-              newDate = now.add(const Duration(days: 7));
+              newDate = today.add(const Duration(days: 7));
             } else {
               newDate = null;
             }
-            data.dueDate = newDate;
-            widget.onUpdate();
+            
+            if (widget.onTodoChanged != null) {
+              final updatedTodo = data.copyWith(dueDate: newDate, resetDueDate: newDate == null);
+              widget.onTodoChanged!(updatedTodo);
+            }
           },
           builder: (context, candidateData, rejectedData) {
             return Column(
@@ -136,32 +141,50 @@ class _DueDateViewState extends State<DueDateView> {
                     ),
                   ),
                 ...todos.map(
-                  (todo) => Draggable<Todo>(
-                    data: todo,
-                    feedback: SizedBox(
-                      width: MediaQuery.of(context).size.width - 32,
-                      child: TodoCard(
-                        todo: todo,
-                        onEdit: () {},
-                        onCheckboxChanged: (value) {},
-                      ),
-                    ),
-                    childWhenDragging: Opacity(
-                      opacity: 0.3,
-                      child: TodoCard(
-                        todo: todo,
-                        onEdit: () {},
-                        onCheckboxChanged: (value) {},
-                      ),
-                    ),
-                    child: TodoCard(
-                      todo: todo,
-                      onEdit: () => widget.onEdit(todo),
-                      onCheckboxChanged: (value) {
-                        widget.onToggle(todo, value);
-                      },
-                      onTodoChanged: widget.onTodoChanged,
-                      onPromote: widget.onPromote,
+                  (todo) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Draggable<Todo>(
+                          data: todo,
+                          feedback: Material(
+                            elevation: 4.0,
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.transparent,
+                            child: SizedBox(
+                              width: MediaQuery.of(context).size.width - 64,
+                              child: TodoCard(
+                                todo: todo,
+                                onEdit: () {},
+                                onCheckboxChanged: (value) {},
+                              ),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.3,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                          ),
+                        ),
+                        Expanded(
+                          child: TodoCard(
+                            todo: todo,
+                            onEdit: () => widget.onEdit(todo),
+                            onCheckboxChanged: (value) {
+                              widget.onToggle(todo, value);
+                            },
+                            onTodoChanged: widget.onTodoChanged,
+                            onPromote: widget.onPromote,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

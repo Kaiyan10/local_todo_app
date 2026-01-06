@@ -37,8 +37,11 @@ class _TodayDueViewState extends State<TodayDueView> {
     final todayStart = DateTime(now.year, now.month, now.day);
     final yesterdayStart = todayStart.subtract(const Duration(days: 1));
 
+    // Flatten task hierarchy to include subtasks
+    final allTodos = _flattenTodos(widget.todos);
+
     // 1. ブロッカー
-    final blockers = widget.todos.where((todo) {
+    final blockers = allTodos.where((todo) {
       if (todo.isDone) return false;
       final isHigh = todo.priority == Priority.high;
       final isOverdue =
@@ -47,7 +50,7 @@ class _TodayDueViewState extends State<TodayDueView> {
     }).toList();
 
     // 2. 今日の予定
-    final todaysPlan = widget.todos.where((todo) {
+    final todaysPlan = allTodos.where((todo) {
       if (todo.isDone) return false;
       if (blockers.contains(todo)) return false;
 
@@ -63,7 +66,7 @@ class _TodayDueViewState extends State<TodayDueView> {
     }).toList();
 
     // 3. 昨日の成果
-    final yesterdaysWins = widget.todos.where((todo) {
+    final yesterdaysWins = allTodos.where((todo) {
       if (!todo.isDone || todo.lastCompletedDate == null) return false;
       return todo.lastCompletedDate!.isAfter(yesterdayStart) &&
           todo.lastCompletedDate!.isBefore(
@@ -276,5 +279,9 @@ class _TodayDueViewState extends State<TodayDueView> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Standup summary copied to clipboard!')),
     );
+  }
+
+  List<Todo> _flattenTodos(List<Todo> tasks) {
+    return tasks.expand((t) => [t, ..._flattenTodos(t.subTasks)]).toList();
   }
 }

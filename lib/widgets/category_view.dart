@@ -37,105 +37,127 @@ class _CategoryViewState extends State<CategoryView> {
     // 全てのカテゴリを表示（ドラッグ＆ドロップ用）
     final categories = GtdCategory.values;
 
-    return ListView.builder(
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        final category = categories[index];
-        final todos = groupedTodos[category] ?? [];
-        todos.sort((a, b) {
-          if (a.dueDate == null && b.dueDate == null) return 0;
-          if (a.dueDate == null) return 1;
-          if (b.dueDate == null) return -1;
-          return a.dueDate!.compareTo(b.dueDate!);
-        });
-
-        return DragTarget<Todo>(
-          onWillAccept: (data) => data != null && data.category != category,
-          onAccept: (data) {
-            data.category = category;
-            widget.onUpdate();
-          },
-          builder: (context, candidateData, rejectedData) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  color: Colors.transparent,
-                  child: ExpansionTile(
-                    title: Text(
-                      SettingsService().getCategoryName(category),
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
+    return Scrollbar(
+      thumbVisibility: true,
+      child: ListView.builder(
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final todos = groupedTodos[category] ?? [];
+          todos.sort((a, b) {
+            if (a.dueDate == null && b.dueDate == null) return 0;
+            if (a.dueDate == null) return 1;
+            if (b.dueDate == null) return -1;
+            return a.dueDate!.compareTo(b.dueDate!);
+          });
+  
+          return DragTarget<Todo>(
+            onWillAccept: (data) => data != null && data.category != category,
+            onAccept: (data) {
+              if (widget.onTodoChanged != null) {
+                final updatedTodo = data.copyWith(category: category);
+                widget.onTodoChanged!(updatedTodo);
+              }
+            },
+            builder: (context, candidateData, rejectedData) {
+              final isHovering = candidateData.isNotEmpty;
+              
+              return ExpansionTile(
+                initiallyExpanded: true,
+                collapsedBackgroundColor: isHovering 
+                    ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                    : null,
+                backgroundColor: isHovering 
+                    ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1)
+                    : null,
+                title: Text(
+                  SettingsService().getCategoryName(category),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                if (candidateData.isNotEmpty)
-                  Container(
-                    height: 50,
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.primary,
-                        style: BorderStyle.solid,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Drop here',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                if (category == GtdCategory.waitingFor) ...[
-                  ..._buildGroupedByDelegatee(todos, context),
-                ] else ...[
-                  ...todos.map(
-                    (todo) => Draggable<Todo>(
-                      data: todo,
-                      feedback: Material(
-                        elevation: 4.0,
+                children: [
+                  if (isHovering)
+                    Container(
+                      height: 50,
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          style: BorderStyle.solid,
+                        ),
                         borderRadius: BorderRadius.circular(8),
-                        color: Colors.transparent,
-                        child: SizedBox(
-                          width: MediaQuery.of(context).size.width - 32,
-                          child: TodoCard(
-                            todo: todo,
-                            onEdit: () {},
-                            onCheckboxChanged: (value) {},
-                          ),
-                        ),
+                        color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
                       ),
-                      childWhenDragging: Opacity(
-                        opacity: 0.3,
-                        child: TodoCard(
-                          todo: todo,
-                          onEdit: () {},
-                          onCheckboxChanged: (value) {},
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Drop to move to ${SettingsService().getCategoryName(category)}',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      child: TodoCard(
-                        todo: todo,
-                        onEdit: () => widget.onEdit(todo),
-                        onCheckboxChanged: (value) {
-                          widget.onToggle(todo, value);
-                        },
-                        onTodoChanged: widget.onTodoChanged,
-                        onPromote: widget.onPromote,
                       ),
                     ),
-                  ),
+                  if (category == GtdCategory.waitingFor) ...[
+                    ..._buildGroupedByDelegatee(todos, context),
+                  ] else ...[
+                    ...todos.map(
+                    (todo) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Draggable<Todo>(
+                            data: todo,
+                            feedback: Material(
+                              elevation: 4.0,
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.transparent,
+                              child: SizedBox(
+                                width: MediaQuery.of(context).size.width - 64,
+                                child: TodoCard(
+                                  todo: todo,
+                                  onEdit: () {},
+                                  onCheckboxChanged: (value) {},
+                                ),
+                              ),
+                            ),
+                            childWhenDragging: Opacity(
+                              opacity: 0.3,
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                            ),
+                          ),
+                          Expanded(
+                            child: TodoCard(
+                              todo: todo,
+                              onEdit: () => widget.onEdit(todo),
+                              onCheckboxChanged: (value) {
+                                widget.onToggle(todo, value);
+                              },
+                              onTodoChanged: widget.onTodoChanged,
+                              onPromote: widget.onPromote,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ),
+                  ],
+                  const Divider(),
                 ],
-                const Divider(),
-              ],
-            );
-          },
-        );
-      },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -180,32 +202,50 @@ class _CategoryViewState extends State<CategoryView> {
 
       widgets.addAll(
         groupTodos.map(
-          (todo) => Draggable<Todo>(
-            data: todo,
-            feedback: SizedBox(
-              width: MediaQuery.of(context).size.width - 32,
-              child: TodoCard(
-                todo: todo,
-                onEdit: () {},
-                onCheckboxChanged: (value) {},
-              ),
-            ),
-            childWhenDragging: Opacity(
-              opacity: 0.3,
-              child: TodoCard(
-                todo: todo,
-                onEdit: () {},
-                onCheckboxChanged: (value) {},
-              ),
-            ),
-            child: TodoCard(
-              todo: todo,
-              onEdit: () => widget.onEdit(todo),
-              onCheckboxChanged: (value) {
-                widget.onToggle(todo, value);
-              },
-              onTodoChanged: widget.onTodoChanged,
-              onPromote: widget.onPromote,
+          (todo) => Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Draggable<Todo>(
+                  data: todo,
+                  feedback: Material(
+                    elevation: 4.0,
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.transparent,
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width - 64,
+                      child: TodoCard(
+                        todo: todo,
+                        onEdit: () {},
+                        onCheckboxChanged: (value) {},
+                      ),
+                    ),
+                  ),
+                  childWhenDragging: Opacity(
+                    opacity: 0.3,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                  ),
+                ),
+                Expanded(
+                  child: TodoCard(
+                    todo: todo,
+                    onEdit: () => widget.onEdit(todo),
+                    onCheckboxChanged: (value) {
+                      widget.onToggle(todo, value);
+                    },
+                    onTodoChanged: widget.onTodoChanged,
+                    onPromote: widget.onPromote,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

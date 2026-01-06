@@ -145,17 +145,78 @@ class _TodoCardState extends State<TodoCard> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        subTask.title,
-                        style: TextStyle(
-                          decoration: subTask.isDone
-                              ? TextDecoration.lineThrough
-                              : null,
-                          color: subTask.isDone
-                              ? Theme.of(context).disabledColor
-                              : null,
-                          fontSize: 13,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            subTask.title,
+                            style: TextStyle(
+                              decoration: subTask.isDone
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: subTask.isDone
+                                  ? Theme.of(context).disabledColor
+                                  : null,
+                              fontSize: 13,
+                            ),
+                          ),
+                          if (subTask.priority != Priority.none ||
+                              subTask.dueDate != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2.0),
+                              child: Row(
+                                children: [
+                                  if (subTask.priority != Priority.none) ...[
+                                    Container(
+                                      margin: const EdgeInsets.only(right: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _getPriorityColor(
+                                                subTask.priority)
+                                            ?.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        subTask.priority.displayName,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: _getPriorityColor(
+                                              subTask.priority),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  if (subTask.dueDate != null) ...[
+                                    Icon(
+                                      Icons.calendar_today,
+                                      size: 12,
+                                      color: subTask.dueDate!
+                                                  .isBefore(DateTime.now()) &&
+                                              !subTask.isDone
+                                          ? Theme.of(context).colorScheme.error
+                                          : Theme.of(context).disabledColor,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _dateFormat.format(subTask.dueDate!),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: subTask.dueDate!
+                                                    .isBefore(DateTime.now()) &&
+                                                !subTask.isDone
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .error
+                                            : Theme.of(context).disabledColor,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     if (widget.onPromote != null)

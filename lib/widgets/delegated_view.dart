@@ -71,56 +71,114 @@ class _DelegatedViewState extends State<DelegatedView> {
         final delegatee = sortedKeys[index];
         final todos = groupedTodos[delegatee]!;
 
-        return Card(
-          // Use Card for visual grouping
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          elevation: 0,
-          color: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: Theme.of(context).dividerColor.withOpacity(0.1),
-            ),
-          ),
-          child: ExpansionTile(
-            initiallyExpanded: true,
-            shape: Border.all(color: Colors.transparent),
-            leading: CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Text(
-                delegatee.isNotEmpty ? delegatee[0].toUpperCase() : '?',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.bold,
+        return DragTarget<Todo>(
+          onWillAccept: (data) => data != null, // Accept any todo
+          onAccept: (data) {
+            if (widget.onTodoChanged != null) {
+              // Assign to this delegatee
+              final isUnassigned = delegatee == '担当者なし';
+              final updatedTodo = data.copyWith(
+                delegatee: isUnassigned ? null : delegatee,
+                resetDelegatee: isUnassigned,
+                category: GtdCategory.waitingFor, // Implicitly ensure it's in Waiting For
+              );
+              widget.onTodoChanged!(updatedTodo);
+            }
+          },
+          builder: (context, candidateData, rejectedData) {
+            final isHovering = candidateData.isNotEmpty;
+            return Card(
+              // Use Card for visual grouping
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              elevation: 0,
+              color: isHovering 
+                  ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: isHovering
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).dividerColor.withOpacity(0.1),
+                  width: isHovering ? 2 : 1,
                 ),
               ),
-            ),
-            title: Text(
-              delegatee,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text('${todos.length}'),
-            ),
-            children: todos
-                .map(
-                  (todo) => TodoCard(
-                    todo: todo,
-                    onEdit: () => widget.onEdit(todo),
-                    onCheckboxChanged: (val) => widget.onToggle(todo, val),
-                    onTodoChanged: widget.onTodoChanged,
-                    onPromote: widget.onPromote,
+              child: ExpansionTile(
+                initiallyExpanded: true,
+                shape: Border.all(color: Colors.transparent),
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: Text(
+                    delegatee.isNotEmpty ? delegatee[0].toUpperCase() : '?',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                )
-                .toList(),
-          ),
+                ),
+                title: Text(
+                  delegatee,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text('${todos.length}'),
+                ),
+                children: todos
+                    .map(
+                      (todo) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Draggable<Todo>(
+                              data: todo,
+                              feedback: Material(
+                                elevation: 4.0,
+                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.transparent,
+                                child: SizedBox(
+                                  width: MediaQuery.of(context).size.width - 64,
+                                  child: TodoCard(
+                                    todo: todo,
+                                    onEdit: () {},
+                                    onCheckboxChanged: (value) {},
+                                  ),
+                                ),
+                              ),
+                              childWhenDragging: Opacity(
+                                opacity: 0.3,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                              ),
+                            ),
+                            Expanded(
+                              child: TodoCard(
+                                todo: todo,
+                                onEdit: () => widget.onEdit(todo),
+                                onCheckboxChanged: (val) => widget.onToggle(todo, val),
+                                onTodoChanged: widget.onTodoChanged,
+                                onPromote: widget.onPromote,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            );
+          },
         );
       },
     );

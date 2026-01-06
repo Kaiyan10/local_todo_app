@@ -55,8 +55,10 @@ class _PriorityViewState extends State<PriorityView> {
         return DragTarget<Todo>(
           onWillAccept: (data) => data != null && data.priority != priority,
           onAccept: (data) {
-            data.priority = priority; // Update priority
-            widget.onUpdate();
+            if (widget.onTodoChanged != null) {
+              final updatedTodo = data.copyWith(priority: priority);
+              widget.onTodoChanged!(updatedTodo);
+            }
           },
           builder: (context, candidateData, rejectedData) {
             return Column(
@@ -92,32 +94,50 @@ class _PriorityViewState extends State<PriorityView> {
                     ),
                   ),
                 ...todos.map(
-                  (todo) => Draggable<Todo>(
-                    data: todo,
-                    feedback: SizedBox(
-                      width: MediaQuery.of(context).size.width - 32,
-                      child: TodoCard(
-                        todo: todo,
-                        onEdit: () {},
-                        onCheckboxChanged: (value) {},
-                      ),
-                    ),
-                    childWhenDragging: Opacity(
-                      opacity: 0.3,
-                      child: TodoCard(
-                        todo: todo,
-                        onEdit: () {},
-                        onCheckboxChanged: (value) {},
-                      ),
-                    ),
-                    child: TodoCard(
-                      todo: todo,
-                      onEdit: () => widget.onEdit(todo),
-                      onCheckboxChanged: (value) {
-                        widget.onToggle(todo, value);
-                      },
-                      onTodoChanged: widget.onTodoChanged,
-                      onPromote: widget.onPromote,
+                  (todo) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Draggable<Todo>(
+                          data: todo,
+                          feedback: Material(
+                            elevation: 4.0,
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.transparent,
+                            child: SizedBox(
+                              width: MediaQuery.of(context).size.width - 64,
+                              child: TodoCard(
+                                todo: todo,
+                                onEdit: () {},
+                                onCheckboxChanged: (value) {},
+                              ),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.3,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: const Icon(Icons.drag_indicator, color: Colors.grey),
+                          ),
+                        ),
+                        Expanded(
+                          child: TodoCard(
+                            todo: todo,
+                            onEdit: () => widget.onEdit(todo),
+                            onCheckboxChanged: (value) {
+                              widget.onToggle(todo, value);
+                            },
+                            onTodoChanged: widget.onTodoChanged,
+                            onPromote: widget.onPromote,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

@@ -13,8 +13,18 @@ import 'screen/weekly_review_wizard.dart';
 import 'screen/project_dashboard_view.dart';
 import 'screen/process_inbox_view.dart';
 
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
   // DatabaseHelper initializes lazily via the database getter
   await SettingsService().init();
   runApp(const TodoApp());
@@ -86,10 +96,28 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _loadData() async {
-    final todos = await _repository.loadTodos();
-    setState(() {
-      _todos = todos;
-    });
+    try {
+      final todos = await _repository.loadTodos();
+      setState(() {
+        _todos = todos;
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading todos: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('データの読み込みに失敗しました。詳細: $e'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: '再試行',
+              onPressed: _loadData,
+            ),
+          ),
+        );
+      }
+    }
   }
 
   // _save() is removed as we use atomic updates

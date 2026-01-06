@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../data/todo.dart';
 import '../data/settings_service.dart';
@@ -152,11 +153,17 @@ class _TodoAddViewState extends State<TodoAddView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        // Title removed for modern look
-        scrolledUnderElevation: 0,
-      ),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter, control: true): _save,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          appBar: AppBar(
+            // Title removed for modern look
+            scrolledUnderElevation: 0,
+          ),
       floatingActionButton: FloatingActionButton(
         onPressed: _save,
         child: const Icon(Icons.check),
@@ -177,6 +184,8 @@ class _TodoAddViewState extends State<TodoAddView> {
               const SizedBox(height: 80), // Space for FAB
             ],
           ),
+        ),
+      ),
         ),
       ),
     );
@@ -451,6 +460,7 @@ class _TodoAddViewState extends State<TodoAddView> {
                         children: [
                           if (_subTasks.isNotEmpty)
                             ReorderableListView.builder(
+                              buildDefaultDragHandles: false,
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: _subTasks.length,
@@ -513,6 +523,80 @@ class _TodoAddViewState extends State<TodoAddView> {
                                               : null,
                                         ),
                                       ),
+                                      subtitle: (subTask.dueDate != null ||
+                                              subTask.priority != Priority.none)
+                                          ? Padding(
+                                              padding: const EdgeInsets.only(
+                                                  top: 4.0),
+                                              child: Row(
+                                                children: [
+                                                  if (subTask.priority !=
+                                                      Priority.none) ...[
+                                                    Container(
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                              right: 8),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            _getPriorityColor(
+                                                                    subTask
+                                                                        .priority)
+                                                                .withOpacity(
+                                                                    0.2),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        subTask.priority
+                                                            .displayName,
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          color:
+                                                              _getPriorityColor(
+                                                                  subTask
+                                                                      .priority),
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  if (subTask.dueDate !=
+                                                      null) ...[
+                                                    Icon(
+                                                      Icons.calendar_today,
+                                                      size: 12,
+                                                      color: subTask.dueDate!
+                                                                  .isBefore(DateTime
+                                                                      .now()) &&
+                                                              !subTask.isDone
+                                                          ? Colors.red
+                                                          : Colors.grey,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      DateFormat.yMd().format(
+                                                          subTask.dueDate!),
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: subTask.dueDate!
+                                                                    .isBefore(DateTime
+                                                                        .now()) &&
+                                                                !subTask.isDone
+                                                            ? Colors.red
+                                                            : Colors.grey,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            )
+                                          : null,
                                       trailing: IconButton(
                                         icon: const Icon(Icons.close, size: 18),
                                         onPressed: () {
@@ -633,6 +717,18 @@ class _TodoAddViewState extends State<TodoAddView> {
         ),
       ],
     );
+  }
+  Color _getPriorityColor(Priority priority) {
+    switch (priority) {
+      case Priority.high:
+        return Colors.red;
+      case Priority.medium:
+        return Colors.orange;
+      case Priority.low:
+        return Colors.green;
+      case Priority.none:
+        return Colors.grey;
+    }
   }
 }
 

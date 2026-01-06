@@ -110,6 +110,8 @@ class Todo {
     List<Todo>? subTasks,
     String? delegatee,
     DateTime? delegatedDate,
+    bool resetDueDate = false,
+    bool resetDelegatee = false,
   }) {
     return Todo(
       id: id ?? this.id,
@@ -119,13 +121,13 @@ class Todo {
       isDone: isDone ?? this.isDone,
       tags: tags ?? this.tags,
       note: note ?? this.note,
-      dueDate: dueDate ?? this.dueDate,
+      dueDate: resetDueDate ? null : (dueDate ?? this.dueDate),
       priority: priority ?? this.priority,
       url: url ?? this.url,
       repeatPattern: repeatPattern ?? this.repeatPattern,
       lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
       subTasks: subTasks ?? this.subTasks,
-      delegatee: delegatee ?? this.delegatee,
+      delegatee: resetDelegatee ? null : (delegatee ?? this.delegatee),
       delegatedDate: delegatedDate ?? this.delegatedDate,
     );
   }
