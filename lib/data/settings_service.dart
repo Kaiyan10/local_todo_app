@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'todo.dart';
+import 'dart:convert';
+import 'package:uuid/uuid.dart';
+import 'category_model.dart' as model;
+
 
 class SettingsService extends ChangeNotifier {
   static final SettingsService _instance = SettingsService._internal();
@@ -22,7 +25,8 @@ class SettingsService extends ChangeNotifier {
     '@Home',
   ];
 
-  final Map<GtdCategory, String> _categoryNames = {};
+  List<model.Category> _categories = [];
+  final Uuid _uuid = const Uuid();
 
   Future<void> init() async {
     if (_initialized) return;
@@ -34,38 +38,21 @@ class SettingsService extends ChangeNotifier {
       _contexts = savedContexts;
     }
 
-    // Load category names
-    for (var category in GtdCategory.values) {
-      final key = 'category_name_${category.name}';
-      final savedName = _prefs.getString(key);
-      if (savedName != null) {
-        _categoryNames[category] = savedName;
-      } else {
-        // Default names
-        _categoryNames[category] = _getDefaultCategoryName(category);
-      }
+    // Load categories
+    final savedCategories = _prefs.getString('custom_categories');
+    if (savedCategories != null) {
+      final List<dynamic> jsonList = jsonDecode(savedCategories);
+      _categories = jsonList.map((j) => model.Category.fromJson(j)).toList();
+    } else {
+      // Default initialization
+      _categories = List.from(model.SystemCategories.initialCategories);
     }
 
     _initialized = true;
     notifyListeners();
   }
 
-  String _getDefaultCategoryName(GtdCategory category) {
-    switch (category) {
-      case GtdCategory.inbox:
-        return 'Inbox';
-      case GtdCategory.nextAction:
-        return 'Next Action';
-      case GtdCategory.project:
-        return 'Project';
-      case GtdCategory.waitingFor:
-        return 'Waiting For';
-      case GtdCategory.someday:
-        return 'Someday/Maybe';
-      case GtdCategory.reference:
-        return 'Reference';
-    }
-  }
+
 
   // --- Contexts ---
 
@@ -89,13 +76,54 @@ class SettingsService extends ChangeNotifier {
 
   // --- Categories ---
 
-  String getCategoryName(GtdCategory category) {
-    return _categoryNames[category] ?? _getDefaultCategoryName(category);
+  // --- Categories ---
+
+  List<model.Category> get categories => List.unmodifiable(_categories);
+
+  String getCategoryName(String id) {
+    final cat = _categories.firstWhere(
+      (c) => c.id == id,
+      orElse: () => model.Category(id: id, name: id, isSystem: false),
+    );
+    return cat.name;
   }
 
-  Future<void> setCategoryName(GtdCategory category, String newName) async {
-    _categoryNames[category] = newName;
-    await _prefs.setString('category_name_${category.name}', newName);
+  Future<void> addCategory(String name) async {
+    final newCategory = model.Category(
+      id: _uuid.v4(),
+      name: name,
+      isSystem: false,
+    );
+    _categories.add(newCategory);
+    await _saveCategories();
     notifyListeners();
+  }
+
+  Future<void> updateCategory(String id, String newName) async {
+    final index = _categories.indexWhere((c) => c.id == id);
+    if (index != -1) {
+      final old = _categories[index];
+      _categories[index] = model.Category(
+        id: old.id,
+        name: newName,
+        isSystem: old.isSystem,
+      );
+      await _saveCategories();
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteCategory(String id) async {
+    final index = _categories.indexWhere((c) => c.id == id);
+    if (index != -1 && !_categories[index].isSystem) {
+      _categories.removeAt(index);
+      await _saveCategories();
+      notifyListeners();
+    }
+  }
+
+  Future<void> _saveCategories() async {
+    final jsonList = _categories.map((c) => c.toJson()).toList();
+    await _prefs.setString('custom_categories', jsonEncode(jsonList));
   }
 }

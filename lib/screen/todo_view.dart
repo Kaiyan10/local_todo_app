@@ -20,6 +20,8 @@ class TodoView extends StatefulWidget {
     required this.onQuickAdd,
     this.onTodoChanged,
     this.onPromote,
+    this.onDelete,
+    this.onLoadCompleted,
   });
 
   final List<Todo> todos;
@@ -29,6 +31,8 @@ class TodoView extends StatefulWidget {
   final Function(String) onQuickAdd;
   final Function(Todo)? onTodoChanged;
   final Function(Todo, Todo)? onPromote;
+  final Function(Todo)? onDelete;
+  final VoidCallback? onLoadCompleted;
 
   @override
   State<TodoView> createState() => _TodoViewState();
@@ -102,6 +106,9 @@ class _TodoViewState extends State<TodoView> {
                 setState(() {
                   _showDone = value;
                 });
+                if (value) {
+                  widget.onLoadCompleted?.call();
+                }
               },
             ),
           ],
@@ -119,52 +126,57 @@ class _TodoViewState extends State<TodoView> {
         ? widget.todos
         : widget.todos.where((t) => !t.isDone).toList();
 
-    switch (_viewMode) {
-      case TodoViewMode.category:
-        return CategoryView(
+    // Mapping TodoViewMode enum index to widgets
+    // Enum order: { category, priority, context, delegated, dueDate }
+    return IndexedStack(
+      index: _viewMode.index,
+      children: [
+        CategoryView(
           todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
           onPromote: widget.onPromote,
-        );
-      case TodoViewMode.priority:
-        return PriorityView(
+          onDelete: widget.onDelete,
+        ),
+        PriorityView(
           todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
           onPromote: widget.onPromote,
-        );
-      case TodoViewMode.delegated:
-        return DelegatedView(
+          onDelete: widget.onDelete,
+        ),
+        ContextView(
           todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
           onPromote: widget.onPromote,
-        );
-      case TodoViewMode.context:
-        return ContextView(
+          onDelete: widget.onDelete,
+        ),
+        DelegatedView(
           todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
           onPromote: widget.onPromote,
-        );
-      case TodoViewMode.dueDate:
-        return DueDateView(
+          onDelete: widget.onDelete,
+        ),
+        DueDateView(
           todos: displayTodos,
           onEdit: widget.onEdit,
           onUpdate: widget.onUpdate,
           onToggle: widget.onToggle,
           onTodoChanged: widget.onTodoChanged,
           onPromote: widget.onPromote,
-        );
-    }
+          onDelete: widget.onDelete,
+        ),
+      ],
+    );
   }
 }

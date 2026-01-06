@@ -12,6 +12,7 @@ class CategoryView extends StatefulWidget {
     required this.onToggle,
     this.onTodoChanged,
     this.onPromote,
+    this.onDelete,
   });
 
   final List<Todo> todos;
@@ -20,42 +21,73 @@ class CategoryView extends StatefulWidget {
   final Function(Todo, bool?) onToggle;
   final Function(Todo)? onTodoChanged;
   final Function(Todo, Todo)? onPromote;
+  final Function(Todo)? onDelete;
 
   @override
   State<CategoryView> createState() => _CategoryViewState();
 }
 
 class _CategoryViewState extends State<CategoryView> {
+  final ScrollController _scrollController = ScrollController();
+  late Map<String, List<Todo>> _groupedTodos;
+
+  @override
+  void initState() {
+    super.initState();
+    _groupTodos();
+  }
+
+  @override
+  void didUpdateWidget(CategoryView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.todos != oldWidget.todos) {
+      _groupTodos();
+    }
+  }
+
+  void _groupTodos() {
+    _groupedTodos = {};
+    for (var todo in widget.todos) {
+      _groupedTodos.putIfAbsent(todo.categoryId, () => []).add(todo);
+    }
+    // Pre-sort
+    for (var list in _groupedTodos.values) {
+      list.sort((a, b) {
+        if (a.dueDate == null && b.dueDate == null) return 0;
+        if (a.dueDate == null) return 1;
+        if (b.dueDate == null) return -1;
+        return a.dueDate!.compareTo(b.dueDate!);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // カテゴリごとに Todo をグループ化
-    final groupedTodos = <GtdCategory, List<Todo>>{};
-    for (var todo in widget.todos) {
-      groupedTodos.putIfAbsent(todo.category, () => []).add(todo);
-    }
-
     // 全てのカテゴリを表示（ドラッグ＆ドロップ用）
-    final categories = GtdCategory.values;
+    final categories = SettingsService().categories;
 
     return Scrollbar(
+      controller: _scrollController,
       thumbVisibility: true,
       child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: 120),
+        controller: _scrollController,
         itemCount: categories.length,
         itemBuilder: (context, index) {
           final category = categories[index];
-          final todos = groupedTodos[category] ?? [];
-          todos.sort((a, b) {
-            if (a.dueDate == null && b.dueDate == null) return 0;
-            if (a.dueDate == null) return 1;
-            if (b.dueDate == null) return -1;
-            return a.dueDate!.compareTo(b.dueDate!);
-          });
+          final todos = _groupedTodos[category.id] ?? [];
   
           return DragTarget<Todo>(
-            onWillAccept: (data) => data != null && data.category != category,
+            onWillAccept: (data) => data != null && data.categoryId != category.id,
             onAccept: (data) {
               if (widget.onTodoChanged != null) {
-                final updatedTodo = data.copyWith(category: category);
+                final updatedTodo = data.copyWith(categoryId: category.id);
                 widget.onTodoChanged!(updatedTodo);
               }
             },
@@ -71,7 +103,7 @@ class _CategoryViewState extends State<CategoryView> {
                     ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1)
                     : null,
                 title: Text(
-                  SettingsService().getCategoryName(category),
+                  category.name,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.primary,
@@ -92,14 +124,14 @@ class _CategoryViewState extends State<CategoryView> {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        'Drop to move to ${SettingsService().getCategoryName(category)}',
+                        'Drop to move to ${category.name}',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                  if (category == GtdCategory.waitingFor) ...[
+                  if (category.id == 'waitingFor') ...[
                     ..._buildGroupedByDelegatee(todos, context),
                   ] else ...[
                     ...todos.map(
@@ -144,6 +176,7 @@ class _CategoryViewState extends State<CategoryView> {
                               },
                               onTodoChanged: widget.onTodoChanged,
                               onPromote: widget.onPromote,
+                              onDelete: widget.onDelete,
                             ),
                           ),
                         ],
@@ -243,6 +276,7 @@ class _CategoryViewState extends State<CategoryView> {
                     },
                     onTodoChanged: widget.onTodoChanged,
                     onPromote: widget.onPromote,
+                    onDelete: widget.onDelete,
                   ),
                 ),
               ],

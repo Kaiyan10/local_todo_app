@@ -19,7 +19,7 @@ class _TodoAddViewState extends State<TodoAddView> {
   final _noteController = TextEditingController();
   final _dueDateController = TextEditingController();
   Priority _priority = Priority.none;
-  GtdCategory _category = GtdCategory.inbox;
+  String _categoryId = 'inbox';
   RepeatPattern _repeatPattern = RepeatPattern.none;
   DateTime? _dueDate;
   List<SubTaskWrapper> _subTasks = [];
@@ -32,12 +32,12 @@ class _TodoAddViewState extends State<TodoAddView> {
     if (widget.todo != null) {
       final t = widget.todo!;
       _textController.text = t.title;
-      _category = t.category;
+      _categoryId = t.categoryId;
       _priority = t.priority;
       _repeatPattern = t.repeatPattern;
       _dueDate = t.dueDate;
       if (_dueDate != null) {
-        _dueDateController.text = DateFormat.yMd().format(_dueDate!);
+        _dueDateController.text = DateFormat('yyyy/MM/dd').format(_dueDate!);
       }
       _tagsController.text = t.tags.join(', ');
       _noteController.text = t.note ?? '';
@@ -63,7 +63,7 @@ class _TodoAddViewState extends State<TodoAddView> {
         id: widget.todo?.id, // Keep ID for updates
         parentId: widget.todo?.parentId, // Keep parentId for subtasks
         title: _textController.text.trim(),
-        category: _category,
+        categoryId: _categoryId,
         priority: _priority,
         dueDate: _dueDate,
         repeatPattern: _repeatPattern,
@@ -79,7 +79,7 @@ class _TodoAddViewState extends State<TodoAddView> {
         isDone: widget.todo?.isDone ?? false,
         subTasks: _subTasks.map((e) => e.todo).toList(),
         delegatee:
-            _category == GtdCategory.waitingFor &&
+            _categoryId == 'waitingFor' &&
                 _delegateeController.text.trim().isNotEmpty
             ? _delegateeController.text.trim()
             : null,
@@ -96,7 +96,7 @@ class _TodoAddViewState extends State<TodoAddView> {
           SubTaskWrapper(
             Todo(
               title: text,
-              category: _category,
+              categoryId: _categoryId,
               priority: _priority,
               tags: _tagsController.text
                   .split(',')
@@ -121,7 +121,7 @@ class _TodoAddViewState extends State<TodoAddView> {
     if (picked != null) {
       setState(() {
         _dueDate = picked;
-        _dueDateController.text = DateFormat.yMd().format(picked);
+        _dueDateController.text = DateFormat('yyyy/MM/dd').format(picked);
       });
     }
   }
@@ -147,7 +147,7 @@ class _TodoAddViewState extends State<TodoAddView> {
   void _setDate(DateTime date) {
     setState(() {
       _dueDate = date;
-      _dueDateController.text = DateFormat.yMd().format(date);
+      _dueDateController.text = DateFormat('yyyy/MM/dd').format(date);
     });
   }
 
@@ -222,22 +222,22 @@ class _TodoAddViewState extends State<TodoAddView> {
         Wrap(
           spacing: 8.0,
           runSpacing: 8.0,
-          children: GtdCategory.values.map((category) {
-            final isSelected = _category == category;
+          children: SettingsService().categories.map((category) {
+            final isSelected = _categoryId == category.id;
             return ChoiceChip(
-              label: Text(category.displayName),
+              label: Text(category.name),
               selected: isSelected,
               onSelected: (selected) {
                 if (selected) {
                   setState(() {
-                    _category = category;
+                    _categoryId = category.id;
                   });
                 }
               },
             );
           }).toList(),
         ),
-        if (_category == GtdCategory.waitingFor) ...[
+        if (_categoryId == 'waitingFor') ...[
           const SizedBox(height: 16),
           TextField(
             controller: _delegateeController,
@@ -321,7 +321,7 @@ class _TodoAddViewState extends State<TodoAddView> {
                       Expanded(
                         child: Text(
                           _dueDate != null
-                              ? DateFormat.yMd().format(_dueDate!)
+                              ? DateFormat('yyyy/MM/dd').format(_dueDate!)
                               : '期限日を設定',
                           style: TextStyle(
                             color: _dueDate != null
@@ -405,6 +405,29 @@ class _TodoAddViewState extends State<TodoAddView> {
                         ),
                         visualDensity: VisualDensity.compact,
                       ),
+                      const SizedBox(width: 8),
+                      ActionChip(
+                        label: const Text('今週金曜日'),
+                        onPressed: () {
+                          final now = DateTime.now();
+                          int daysToFriday = DateTime.friday - now.weekday;
+                          if (daysToFriday < 0) daysToFriday += 7;
+                          _setDate(now.add(Duration(days: daysToFriday)));
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      const SizedBox(width: 8),
+                      ActionChip(
+                        label: const Text('月末'),
+                        onPressed: () {
+                          final now = DateTime.now();
+                          final nextMonth = DateTime(now.year, now.month + 1, 1);
+                          final endOfMonth =
+                              nextMonth.subtract(const Duration(days: 1));
+                          _setDate(endOfMonth);
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
                     ],
                   ),
                 ),
@@ -427,10 +450,7 @@ class _TodoAddViewState extends State<TodoAddView> {
       ),
       tilePadding: EdgeInsets.zero,
       childrenPadding: EdgeInsets.zero,
-      initiallyExpanded:
-          _subTasks.isNotEmpty ||
-          _tagsController.text.isNotEmpty ||
-          _noteController.text.isNotEmpty,
+      initiallyExpanded: true,
       children: [
         const SizedBox(height: 8),
         Card(
@@ -580,7 +600,7 @@ class _TodoAddViewState extends State<TodoAddView> {
                                                     ),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      DateFormat.yMd().format(
+                                                      DateFormat('yyyy/MM/dd').format(
                                                           subTask.dueDate!),
                                                       style: TextStyle(
                                                         fontSize: 12,

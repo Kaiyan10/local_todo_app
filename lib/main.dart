@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'data/todo.dart';
 import 'data/database_helper.dart';
@@ -15,10 +16,29 @@ import 'screen/process_inbox_view.dart';
 
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/services.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    await windowManager.ensureInitialized();
+
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(1280, 720),
+      minimumSize: Size(600, 400),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+    );
+
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
 
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
     sqfliteFfiInit();
@@ -87,6 +107,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   late final TodoRepository _repository;
   List<Todo> _todos = [];
+  bool _areCompletedTodosLoaded = false;
 
   @override
   void initState() {
@@ -100,6 +121,9 @@ class _MainScreenState extends State<MainScreen> {
       final todos = await _repository.loadTodos();
       setState(() {
         _todos = todos;
+        // Reset flag if we reload everything? Or just initial?
+        // Since loadTodos now only loads initial, we are "not fully loaded".
+        _areCompletedTodosLoaded = false;
       });
     } catch (e) {
       if (kDebugMode) {
@@ -120,6 +144,34 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  Future<void> _loadCompletedHistory() async {
+    if (_areCompletedTodosLoaded) return;
+
+    try {
+      final olderTodos = await _repository.loadOlderCompletedTodos();
+      setState(() {
+        _todos.addAll(olderTodos);
+        _areCompletedTodosLoaded = true;
+      });
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('過去の履歴を読み込みました'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('履歴の読み込みに失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  // ... (rest of methods)
+
   // _save() is removed as we use atomic updates
 
   Future<void> _addTodo() async {
@@ -129,7 +181,7 @@ class _MainScreenState extends State<MainScreen> {
     if (result is Todo) {
       final id = await _repository.addTodo(result);
       setState(() {
-        _todos.add(result.copyWith(id: id));
+        _todos = [..._todos, result.copyWith(id: id)];
       });
     }
   }
@@ -141,13 +193,11 @@ class _MainScreenState extends State<MainScreen> {
     if (result is Todo) {
       await _repository.updateTodo(result);
       setState(() {
-        final index = _todos.indexWhere(
-          (t) => t.id == todo.id,
-        ); // Use ID check if possible, or object ref if ID missing (legacy)
-        // Since we reload on start, todos should have IDs.
-        // But for safety:
+        final index = _todos.indexWhere((t) => t.id == todo.id);
         if (index != -1) {
-          _todos[index] = result;
+          final newTodos = List<Todo>.from(_todos);
+          newTodos[index] = result;
+          _todos = newTodos;
         }
       });
     }
@@ -166,13 +216,18 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // ... (placeholder if you want, but better to leave clean)
+
   Future<void> _importTodos(List<Todo> newTodos) async {
     // CSV import.
+    final List<Todo> addedTodos = [];
     for (var todo in newTodos) {
       final id = await _repository.addTodo(todo);
-      _todos.add(todo.copyWith(id: id));
+      addedTodos.add(todo.copyWith(id: id));
     }
-    setState(() {});
+    setState(() {
+      _todos = [..._todos, ...addedTodos];
+    });
   }
 
   Future<void> _updateTodoDirectly(Todo todo) async {
@@ -180,7 +235,9 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       final index = _todos.indexWhere((t) => t.id == todo.id);
       if (index != -1) {
-        _todos[index] = todo;
+        final newTodos = List<Todo>.from(_todos);
+        newTodos[index] = todo;
+        _todos = newTodos;
       }
     });
   }
@@ -192,7 +249,7 @@ class _MainScreenState extends State<MainScreen> {
 
       final nextTodo = Todo(
         title: todo.title,
-        category: todo.category,
+        categoryId: todo.categoryId,
         isDone: false,
         tags: List.from(todo.tags),
         note: todo.note,
@@ -213,12 +270,13 @@ class _MainScreenState extends State<MainScreen> {
       final id = await _repository.addTodo(nextTodo);
 
       setState(() {
-        // Update list
-        final index = _todos.indexOf(todo);
+        final newTodos = List<Todo>.from(_todos);
+        final index = newTodos.indexOf(todo);
         if (index != -1) {
-          _todos[index] = updatedTodo;
+          newTodos[index] = updatedTodo;
         }
-        _todos.add(nextTodo.copyWith(id: id));
+        newTodos.add(nextTodo.copyWith(id: id));
+        _todos = newTodos;
       });
 
       if (mounted) {
@@ -232,46 +290,36 @@ class _MainScreenState extends State<MainScreen> {
         );
       }
     } else {
-      final updatedTodo = todo.copyWith(
-        isDone: value ?? false,
-        lastCompletedDate: (value ?? false) ? DateTime.now() : null,
-      );
-
-      // original logic had specific null assignment.
-      // todo.lastCompletedDate = null; if not done.
-      // copyWith handles nullable?
-      // My copyWith implementation: lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate
-      // If I pass null, it uses `this`. NOT GOOD if I want to clear it.
-      // I need to fix copyWith to allow clearing.
-      // Standard copyWith pattern uses valid nulls via sentinel or wrapped types, usually simply passing null means "don't change".
-      // But here I need to set it to null.
-
-      // Let's modify Todo directly for now since it's mutable in memory?
-      // No, I added ID and it's final?
-      // `Todo` fields are NOT final except title, tags, subtasks, url.
-      // `isDone` is strict.
-      // Wait, checking `todo.dart`:
-      // category, isDone, priority, repeatPattern, dueDate, lastCompletedDate are NOT final.
-      // So I can modify them in place and then pass to updateTodo.
-
-      setState(() {
-        todo.isDone = value ?? false;
-        if (todo.isDone) {
-          todo.lastCompletedDate = DateTime.now();
-        } else {
-          todo.lastCompletedDate = null;
-        }
-      });
+      // Create modified copy for safety (though todo itself might be mutable)
+      // Ideally todo should be immutable too.
+      // But here we rely on copyWith if we want clarity, or just modify field.
+      // Existing code modified field.
+      
+      // We must avoid modifying the object inside _todos list directly if we want to detect change?
+      // Actually, if we create a NEW list, comparison works.
+      
+      todo.isDone = value ?? false;
+      if (todo.isDone) {
+        todo.lastCompletedDate = DateTime.now();
+      } else {
+        todo.lastCompletedDate = null;
+      }
+      
       await _repository.updateTodo(todo);
+      
+      setState(() {
+         // Create new list to trigger update
+         _todos = List.from(_todos);
+      });
     }
   }
 
   Future<void> _quickAddTodo(String title) async {
-    final newTodo = Todo(title: title, category: GtdCategory.inbox);
+    final newTodo = Todo(title: title, categoryId: 'inbox');
     final id = await _repository.addTodo(newTodo);
 
     setState(() {
-      _todos.add(newTodo.copyWith(id: id));
+      _todos = [..._todos, newTodo.copyWith(id: id)];
     });
   }
 
@@ -279,7 +327,7 @@ class _MainScreenState extends State<MainScreen> {
     if (todo.id != null) {
       await _repository.deleteTodo(todo.id!);
       setState(() {
-        _todos.removeWhere((t) => t.id == todo.id);
+        _todos = _todos.where((t) => t.id != todo.id).toList();
       });
     }
   }
@@ -287,8 +335,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _promoteSubTask(Todo parent, Todo subTask) async {
     // 1. Remove subtask from parent
     final newSubTasks = List<Todo>.from(parent.subTasks);
-    newSubTasks.remove(subTask); // Relies on equality/reference.
-    // If remove fails (different instance), try by title/properties
+    newSubTasks.remove(subTask); 
     if (newSubTasks.length == parent.subTasks.length) {
       newSubTasks.removeWhere(
         (t) => t.title == subTask.title && t.dueDate == subTask.dueDate,
@@ -299,32 +346,28 @@ class _MainScreenState extends State<MainScreen> {
     await _repository.updateTodo(updatedParent);
 
     // 2. Add subtask as new root task
-    // We need to ensure it's treated as a new task (new ID).
-    // copyWith(id: null) isn't possible because id is final String?.
-    // But we can create a new Todo from it.
     final newTodo = Todo(
       title: subTask.title,
       isDone: subTask.isDone,
       note: subTask.note,
       dueDate: subTask.dueDate,
       priority: subTask.priority,
-      category: subTask.category,
+      categoryId: subTask.categoryId,
       tags: subTask.tags,
       url: subTask.url,
       repeatPattern: subTask.repeatPattern,
-      // delegatee, etc.
     );
 
     final id = await _repository.addTodo(newTodo);
 
     setState(() {
-      // Update parent in list
-      final index = _todos.indexWhere((t) => t.id == parent.id);
+      final newTodos = List<Todo>.from(_todos);
+      final index = newTodos.indexWhere((t) => t.id == parent.id);
       if (index != -1) {
-        _todos[index] = updatedParent;
+        newTodos[index] = updatedParent;
       }
-      // Add new task
-      _todos.add(newTodo.copyWith(id: id));
+      newTodos.add(newTodo.copyWith(id: id));
+      _todos = newTodos;
     });
 
     if (mounted) {
@@ -371,7 +414,14 @@ class _MainScreenState extends State<MainScreen> {
       return due.isAtSameMomentAs(todayStart);
     }).length;
 
-    return Scaffold(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyN, alt: true): _addTodo,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+
       appBar: AppBar(
         title: const Text('localTodo'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -486,6 +536,10 @@ class _MainScreenState extends State<MainScreen> {
         onQuickAdd: _quickAddTodo,
         onTodoChanged: _updateTodoDirectly,
         onPromote: _promoteSubTask,
+        onDelete: _deleteTodo,
+        onLoadCompleted: _loadCompletedHistory,
+      ),
+        ),
       ),
     );
   }

@@ -58,6 +58,22 @@ class MockDatabaseHelper extends _i1.Mock implements _i3.DatabaseHelper {
           as _i4.Future<List<_i5.Todo>>);
 
   @override
+  _i4.Future<List<_i5.Todo>> readInitialTodos() =>
+      (super.noSuchMethod(
+            Invocation.method(#readInitialTodos, []),
+            returnValue: _i4.Future<List<_i5.Todo>>.value(<_i5.Todo>[]),
+          )
+          as _i4.Future<List<_i5.Todo>>);
+
+  @override
+  _i4.Future<List<_i5.Todo>> readOlderCompletedTodos() =>
+      (super.noSuchMethod(
+            Invocation.method(#readOlderCompletedTodos, []),
+            returnValue: _i4.Future<List<_i5.Todo>>.value(<_i5.Todo>[]),
+          )
+          as _i4.Future<List<_i5.Todo>>);
+
+  @override
   _i4.Future<int> create(_i5.Todo? todo) =>
       (super.noSuchMethod(
             Invocation.method(#create, [todo]),
@@ -88,6 +104,14 @@ class MockDatabaseHelper extends _i1.Mock implements _i3.DatabaseHelper {
             returnValue: _i4.Future<int>.value(0),
           )
           as _i4.Future<int>);
+
+  @override
+  _i4.Future<bool> hasActiveTodosForCategory(String? categoryId) =>
+      (super.noSuchMethod(
+            Invocation.method(#hasActiveTodosForCategory, [categoryId]),
+            returnValue: _i4.Future<bool>.value(false),
+          )
+          as _i4.Future<bool>);
 
   @override
   _i4.Future<String> getDatabasePath() =>

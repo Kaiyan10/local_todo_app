@@ -8,7 +8,11 @@ class TodoRepository {
     : _databaseHelper = databaseHelper ?? DatabaseHelper.instance;
 
   Future<List<Todo>> loadTodos() async {
-    return _databaseHelper.readAllTodos();
+    return _databaseHelper.readInitialTodos();
+  }
+
+  Future<List<Todo>> loadOlderCompletedTodos() async {
+    return _databaseHelper.readOlderCompletedTodos();
   }
 
   Future<int> addTodo(Todo todo) async {
@@ -25,6 +29,10 @@ class TodoRepository {
 
   Future<int> deleteCompletedTodos() async {
     return _databaseHelper.deleteCompletedTodos();
+  }
+
+  Future<bool> hasActiveTodosForCategory(String categoryId) async {
+    return _databaseHelper.hasActiveTodosForCategory(categoryId);
   }
 
   // Deprecated: existing code uses saveTodos with full list.

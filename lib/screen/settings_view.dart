@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:settings_ui/settings_ui.dart';
 import 'package:share_plus/share_plus.dart';
 import '../data/todo.dart';
-import '../data/csv_service.dart';
-import '../data/database_helper.dart';
-import '../data/todo_repository.dart';
+import '../data/category_model.dart' as model;
 import '../data/settings_service.dart';
+import '../data/csv_service.dart';
+import '../data/todo_repository.dart';
+import '../data/database_helper.dart';
+import '../widgets/settings_editors.dart';
+
 
 class SettingsView extends StatelessWidget {
   const SettingsView({
@@ -262,6 +265,39 @@ class SettingsView extends StatelessWidget {
                   );
                 },
               ),
+              SettingsTile.navigation(
+                leading: const Icon(Icons.keyboard),
+                title: const Text('ショートカットキー一覧'),
+                onPressed: (context) {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('キーボードショートカット'),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            ListTile(
+                              title: Text('新規タスク作成'),
+                              subtitle: Text('Alt + N'),
+                            ),
+                            ListTile(
+                              title: Text('タスク保存 (作成・編集画面)'),
+                              subtitle: Text('Ctrl + Enter'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('閉じる'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ],
           ),
           SettingsSection(
@@ -291,6 +327,49 @@ class SettingsView extends StatelessWidget {
                 title: const Text('バージョン'),
                 value: const Text('1.0.0'),
               ),
+              SettingsTile.navigation(
+                leading: const Icon(Icons.help_outline),
+                title: const Text('デイリースタンドアップとは？'),
+                onPressed: (context) {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('デイリースタンドアップ'),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text(
+                              '昨日やったこと (Yesterday)',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text('完了したタスクや進捗があったタスクを共有し、チームに成果を伝えます。'),
+                            SizedBox(height: 16),
+                            Text(
+                              '今日やること (Today)',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text('今日取り組む予定のタスクを宣言し、コミットメントを明確にします。'),
+                            SizedBox(height: 16),
+                            Text(
+                              'ブロッカー (Blockers)',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text('作業の進行を妨げている問題や、誰かの助けが必要な事項を共有します。'),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('閉じる'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         ],
@@ -299,172 +378,15 @@ class SettingsView extends StatelessWidget {
   }
 
   void _showContextsDialog(BuildContext context) {
-    showDialog(context: context, builder: (context) => const _ContextsEditor());
+    showDialog(context: context, builder: (context) => const ContextsEditor());
   }
 
   void _showCategoriesDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => const _CategoriesEditor(),
+      builder: (context) => const CategoriesEditor(),
     );
   }
 }
 
-class _ContextsEditor extends StatefulWidget {
-  const _ContextsEditor({super.key});
 
-  @override
-  State<_ContextsEditor> createState() => _ContextsEditorState();
-}
-
-class _ContextsEditorState extends State<_ContextsEditor> {
-  final _controller = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: SettingsService(),
-      builder: (context, child) {
-        final contexts = SettingsService().contexts;
-        return AlertDialog(
-          title: const Text('コンテキスト設定'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        decoration: const InputDecoration(
-                          hintText: '新しいタグ (例: @Gym)',
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () {
-                        if (_controller.text.isNotEmpty) {
-                          String tag = _controller.text.trim();
-                          if (!tag.startsWith('@')) {
-                            tag = '@$tag';
-                          }
-                          SettingsService().addContext(tag);
-                          _controller.clear();
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: contexts.length,
-                    itemBuilder: (context, index) {
-                      final tag = contexts[index];
-                      return ListTile(
-                        title: Text(tag),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () {
-                            SettingsService().removeContext(tag);
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('閉じる'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _CategoriesEditor extends StatefulWidget {
-  const _CategoriesEditor({super.key});
-
-  @override
-  State<_CategoriesEditor> createState() => _CategoriesEditorState();
-}
-
-class _CategoriesEditorState extends State<_CategoriesEditor> {
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: SettingsService(),
-      builder: (context, _) {
-        return AlertDialog(
-          title: const Text('カテゴリ名カスタマイズ'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: GtdCategory.values.map((category) {
-                return ListTile(
-                  title: Text(SettingsService().getCategoryName(category)),
-                  subtitle: Text('Default: ${category.displayName}'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () {
-                      _showRenameDialog(context, category);
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('閉じる'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showRenameDialog(BuildContext context, GtdCategory category) {
-    final controller = TextEditingController(
-      text: SettingsService().getCategoryName(category),
-    );
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('${category.displayName} の名前変更'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: '表示名'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル'),
-          ),
-          TextButton(
-            onPressed: () {
-              SettingsService().setCategoryName(
-                category,
-                controller.text.trim(),
-              );
-              Navigator.pop(context);
-            },
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
-  }
-}

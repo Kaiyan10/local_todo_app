@@ -4,7 +4,7 @@ class Todo {
   final int? id;
   final int? parentId; // Added parentId
   final String title;
-  GtdCategory category;
+  String categoryId;
   bool isDone;
   final List<String> tags;
   final String? note;
@@ -21,7 +21,7 @@ class Todo {
     this.id,
     this.parentId,
     required this.title,
-    this.category = GtdCategory.inbox,
+    this.categoryId = 'inbox',
     this.isDone = false,
     this.tags = const [],
     this.note,
@@ -40,10 +40,7 @@ class Todo {
       id: json['id'],
       parentId: json['parentId'],
       title: json['title'],
-      category: GtdCategory.values.firstWhere(
-        (e) => e.name == json['category'],
-        orElse: () => GtdCategory.inbox,
-      ),
+      categoryId: json['category'] ?? 'inbox',
       isDone: json['isDone'] is int
           ? (json['isDone'] == 1)
           : (json['isDone'] ?? false), // Handle both int (DB) and bool (JSON)
@@ -79,7 +76,7 @@ class Todo {
       'id': id,
       'parentId': parentId,
       'title': title,
-      'category': category.name,
+      'category': categoryId,
       'isDone': isDone,
       'tags': tags,
       'note': note,
@@ -98,7 +95,7 @@ class Todo {
     int? id,
     int? parentId,
     String? title,
-    GtdCategory? category,
+    String? categoryId,
     bool? isDone,
     List<String>? tags,
     String? note,
@@ -117,7 +114,7 @@ class Todo {
       id: id ?? this.id,
       parentId: parentId ?? this.parentId,
       title: title ?? this.title,
-      category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
       isDone: isDone ?? this.isDone,
       tags: tags ?? this.tags,
       note: note ?? this.note,
@@ -186,31 +183,7 @@ enum RepeatPattern {
   }
 }
 
-enum GtdCategory {
-  inbox,
-  nextAction,
-  project,
-  waitingFor,
-  someday,
-  reference;
 
-  String get displayName {
-    switch (this) {
-      case GtdCategory.inbox:
-        return 'Inbox';
-      case GtdCategory.nextAction:
-        return 'Next Action';
-      case GtdCategory.project:
-        return 'Project';
-      case GtdCategory.waitingFor:
-        return 'Waiting For';
-      case GtdCategory.someday:
-        return 'Someday/Maybe';
-      case GtdCategory.reference:
-        return 'Reference';
-    }
-  }
-}
 
 enum Priority {
   none,

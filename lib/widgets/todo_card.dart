@@ -13,6 +13,7 @@ class TodoCard extends StatefulWidget {
     required this.onCheckboxChanged,
     this.onTodoChanged,
     this.onPromote,
+    this.onDelete,
   });
 
   final Todo todo;
@@ -20,6 +21,7 @@ class TodoCard extends StatefulWidget {
   final ValueChanged<bool?> onCheckboxChanged;
   final Function(Todo)? onTodoChanged;
   final Function(Todo, Todo)? onPromote;
+  final Function(Todo)? onDelete;
 
   @override
   State<TodoCard> createState() => _TodoCardState();
@@ -41,7 +43,7 @@ class _TodoCardState extends State<TodoCard> {
 
     final newSubTask = Todo(
       title: value.trim(),
-      category: widget.todo.category,
+      categoryId: widget.todo.categoryId,
       priority: widget.todo.priority,
       tags: List.from(widget.todo.tags),
     );
@@ -281,7 +283,61 @@ class _TodoCardState extends State<TodoCard> {
     // ロジック確認: 元のコードはサブタスクがない場合に直接 _buildCardContent を返していた（そこでCardをラップしていた）。
     // 現在はすべてを _buildStyledCard でラップする。
 
-    return _buildStyledCard(content);
+    return GestureDetector(
+      onSecondaryTapDown: (details) {
+        showMenu(
+          context: context,
+          position: RelativeRect.fromLTRB(
+            details.globalPosition.dx,
+            details.globalPosition.dy,
+            details.globalPosition.dx,
+            details.globalPosition.dy,
+          ),
+          items: [
+            const PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                   Icon(Icons.edit, size: 20),
+                   SizedBox(width: 8),
+                   Text('編集'),
+                ],
+              ),
+            ),
+             const PopupMenuItem(
+              value: 'toggle',
+              child: Row(
+                children: [
+                   Icon(Icons.check_circle_outline, size: 20),
+                   SizedBox(width: 8),
+                   Text('完了/未完了'),
+                ],
+              ),
+            ),
+            if (widget.onDelete != null)
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Theme.of(context).colorScheme.error, size: 20),
+                    SizedBox(width: 8),
+                    Text('削除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ],
+                ),
+              ),
+          ],
+        ).then((value) {
+          if (value == 'edit') {
+             widget.onEdit();
+          } else if (value == 'toggle') {
+             widget.onCheckboxChanged(!widget.todo.isDone);
+          } else if (value == 'delete') {
+             widget.onDelete?.call(widget.todo);
+          }
+        });
+      },
+      child: _buildStyledCard(content),
+    );
   }
 
   Widget _buildCardContent(BuildContext context, {required bool expand}) {
@@ -291,9 +347,10 @@ class _TodoCardState extends State<TodoCard> {
     // ラッパーの build メソッドが Card を処理する。
 
     return ListTile(
+      dense: true, // Enable dense mode
       contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16.0,
-        vertical: 8.0,
+        horizontal: 12.0, // Reduced horizontal padding
+        vertical: 0.0, // Reduced vertical padding
       ),
       title: _buildTitle(),
       subtitle: _buildSubtitle(context),
@@ -338,7 +395,7 @@ class _TodoCardState extends State<TodoCard> {
     return Text(
       widget.todo.title,
       style: TextStyle(
-        fontSize: 16,
+        fontSize: 14, // Reduced font size
         fontWeight: FontWeight.w500,
         decoration: widget.todo.isDone ? TextDecoration.lineThrough : null,
         color: widget.todo.isDone ? Theme.of(context).disabledColor : null,
@@ -356,7 +413,7 @@ class _TodoCardState extends State<TodoCard> {
         widget.todo.dueDate != null ||
         widget.todo.repeatPattern != RepeatPattern.none ||
         widget.todo.priority != Priority.none ||
-        (widget.todo.category == GtdCategory.waitingFor &&
+        (widget.todo.categoryId == 'waitingFor' &&
             widget.todo.delegatee != null) ||
         widget.todo.subTasks.isNotEmpty ||
         (widget.todo.note != null && widget.todo.note!.isNotEmpty);
@@ -364,13 +421,13 @@ class _TodoCardState extends State<TodoCard> {
     if (!hasMetadata) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8.0),
+      padding: const EdgeInsets.only(top: 2.0), // Reduced top padding
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.todo.note != null && widget.todo.note!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
+              padding: const EdgeInsets.only(bottom: 4.0), // Reduced bottom padding
               child: Text(
                 widget.todo.note!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -381,8 +438,8 @@ class _TodoCardState extends State<TodoCard> {
               ),
             ),
           Wrap(
-            spacing: 12,
-            runSpacing: 8,
+            spacing: 8, // Reduced spacing
+            runSpacing: 4, // Reduced run spacing
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (widget.todo.dueDate != null)
@@ -430,7 +487,7 @@ class _TodoCardState extends State<TodoCard> {
                     ),
                   ],
                 ),
-              if (widget.todo.category == GtdCategory.waitingFor &&
+              if (widget.todo.categoryId == 'waitingFor' &&
                   widget.todo.delegatee != null)
                 Row(
                   mainAxisSize: MainAxisSize.min,

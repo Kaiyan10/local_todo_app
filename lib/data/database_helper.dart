@@ -13,6 +13,12 @@ class DatabaseHelper {
 
   DatabaseHelper._init();
 
+  @visibleForTesting
+  static void resetForTesting() {
+    _database = null;
+  }
+
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('todos.db');
@@ -36,7 +42,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3, // Incremented version
+      version: 4, // Incremented version
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -65,6 +71,11 @@ class DatabaseHelper {
 
     // Create index on parentId for performance
     await db.execute('CREATE INDEX idx_parent_id ON todos (parentId)');
+    
+    // Create new indices for performance (v4)
+    await db.execute('CREATE INDEX idx_category ON todos (category)');
+    await db.execute('CREATE INDEX idx_isDone ON todos (isDone)');
+    await db.execute('CREATE INDEX idx_dueDate ON todos (dueDate)');
 
     // Migration from SharedPreferences (if any)
     await _migrateFromSharedPreferences(db);
@@ -85,15 +96,12 @@ class DatabaseHelper {
         await db.execute('CREATE INDEX idx_parent_id ON todos (parentId)');
       }
 
-      // Migration of data might still be needed if it was missing
-      if (!hasParentId) {
-        await _migrateSubTasksToTodos(db);
-      } else {
-        // If parentId existed, maybe data is already there?
-        // Or maybe we still need to migrate subtasks from JSON?
-        // Let's safe run it.
-        await _migrateSubTasksToTodos(db);
-      }
+      await _migrateSubTasksToTodos(db);
+    }
+    if (oldVersion < 4) {
+      await db.execute('CREATE INDEX idx_category ON todos (category)');
+      await db.execute('CREATE INDEX idx_isDone ON todos (isDone)');
+      await db.execute('CREATE INDEX idx_dueDate ON todos (dueDate)');
     }
   }
 
@@ -113,7 +121,7 @@ class DatabaseHelper {
           await db.insert('todos', {
             'parentId': parentId,
             'title': subTask['title'],
-            'category': row['category'], // Inherit category? Or generic?
+            'category': row['category'],
             'isDone': (subTask['isDone'] == true || subTask['isDone'] == 1)
                 ? 1
                 : 0,
@@ -122,7 +130,7 @@ class DatabaseHelper {
             'dueDate': null,
             'priority': 'none',
             'repeatPattern': 'none',
-            'subTasks': '[]', // No recursive subtasks for now
+            'subTasks': '[]',
           });
         }
 
@@ -134,27 +142,65 @@ class DatabaseHelper {
           whereArgs: [parentId],
         );
       } catch (e) {
-        print('Error migrating subtasks for todo ${row['id']}: $e');
+        if (kDebugMode) {
+           print('Error migrating subtasks for todo ${row['id']}: $e');
+        }
       }
     }
   }
 
   Future<void> _migrateFromSharedPreferences(Database db) async {
-    // ... existing implementation remains mostly same,
-    // but we can skip migrating subtasks JSON if we want strict schema
-    // For now, let's keep it simple.
+    // Implementation skipped for brevity as it was already migrated or stubbed.
+    // Keeping empty method to satisfy call.
   }
 
   Future<List<Todo>> readAllTodos() async {
+    // Keep as legacy full read, or redirect?
+    // Let's keep it as is for safety, or implementation of lazy load can be in Repo.
     final db = await instance.database;
-    final result = await db.query('todos');
+    final result = await db.query('todos'); 
+    return _parseTodosFromRows(result);
+  }
 
+  Future<List<Todo>> readInitialTodos() async {
+    final db = await instance.database;
+    // Active tasks OR Completed since yesterday (for "Yesterday's Wins")
+    // We calculate "Yesterday Start"
+    final now = DateTime.now();
+    final yesterday = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+    final yesterdayIso = yesterday.toIso8601String();
+
+    // Query: isDone = 0 OR (isDone = 1 AND lastCompletedDate >= yesterday)
+    // Note: sqlite stores booleans as 0/1 usually, but check schema. 
+    // Schema says INTEGER.
+    final result = await db.rawQuery(
+      'SELECT * FROM todos WHERE isDone = 0 OR (isDone = 1 AND lastCompletedDate >= ?)',
+      [yesterdayIso]
+    );
+    return _parseTodosFromRows(result);
+  }
+
+  Future<List<Todo>> readOlderCompletedTodos() async {
+    final db = await instance.database;
+    final now = DateTime.now();
+    final yesterday = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+    final yesterdayIso = yesterday.toIso8601String();
+
+    // Query: isDone = 1 AND lastCompletedDate < yesterday
+    final result = await db.rawQuery(
+      'SELECT * FROM todos WHERE isDone = 1 AND lastCompletedDate < ?',
+      [yesterdayIso]
+    );
+    return _parseTodosFromRows(result);
+  }
+
+  List<Todo> _parseTodosFromRows(List<Map<String, Object?>> rows) {
     // Convert all rows to Map<id, Todo> first (without subtasks populated yet)
     final Map<int, Todo> todoMap = {};
     final List<Todo> roots = [];
     final Map<int, List<Todo>> childMap = {};
 
-    for (var json in result) {
+    for (var json in rows) {
       // Temporary Todo object, assuming empty subtasks for now
       try {
         final todo = _rowToTodo(json);
@@ -176,13 +222,6 @@ class DatabaseHelper {
       }
     }
 
-    // Now attach children to parents
-    // Since List<Todo> subTasks is final, we have to rebuild the objects...
-    // This is expensive with immutable/final fields.
-    // Let's create a helper to build tree or just use the flat list if UI supports it?
-    // The UI expects nested `subTasks`. `Todo` class has `final List<Todo> subTasks`.
-    // So we must construct from bottom up or use a second pass copyWith.
-
     // Recursive function to build tree
     Todo attachChildren(Todo parent) {
       final children = childMap[parent.id] ?? [];
@@ -199,10 +238,7 @@ class DatabaseHelper {
       id: json['id'] as int?,
       parentId: json['parentId'] as int?,
       title: json['title'] as String,
-      category: GtdCategory.values.firstWhere(
-        (e) => e.name == json['category'],
-        orElse: () => GtdCategory.inbox,
-      ),
+      categoryId: json['category'] as String,
       isDone: (json['isDone'] as int) == 1,
       tags: json['tags'] != null
           ? List<String>.from(jsonDecode(json['tags'] as String))
@@ -238,7 +274,7 @@ class DatabaseHelper {
     final id = await db.insert('todos', {
       'parentId': todo.parentId,
       'title': todo.title,
-      'category': todo.category.name,
+      'category': todo.categoryId,
       'isDone': todo.isDone ? 1 : 0,
       'tags': jsonEncode(todo.tags),
       'note': todo.note,
@@ -268,7 +304,7 @@ class DatabaseHelper {
       {
         'parentId': todo.parentId,
         'title': todo.title,
-        'category': todo.category.name,
+        'category': todo.categoryId,
         'isDone': todo.isDone ? 1 : 0,
         'tags': jsonEncode(todo.tags),
         'note': todo.note,
@@ -354,6 +390,16 @@ class DatabaseHelper {
       count += await delete(id);
     }
     return count;
+  }
+
+  Future<bool> hasActiveTodosForCategory(String categoryId) async {
+    final db = await instance.database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM todos WHERE category = ? AND isDone = 0',
+      [categoryId],
+    );
+    int count = Sqflite.firstIntValue(result) ?? 0;
+    return count > 0;
   }
 
   // Backup/Restore utilities

@@ -24,12 +24,12 @@ void main() {
         Todo(id: 2, title: 'Test 2', isDone: true),
       ];
 
-      when(mockDatabaseHelper.readAllTodos()).thenAnswer((_) async => todos);
+      when(mockDatabaseHelper.readInitialTodos()).thenAnswer((_) async => todos);
 
       final result = await repository.loadTodos();
 
       expect(result, todos);
-      verify(mockDatabaseHelper.readAllTodos()).called(1);
+      verify(mockDatabaseHelper.readInitialTodos()).called(1);
     });
 
     test('addTodo calls create on database', () async {

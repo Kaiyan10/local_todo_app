@@ -18,7 +18,7 @@ class ProjectDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final projects = todos
-        .where((t) => !t.isDone && t.category == GtdCategory.project)
+        .where((t) => !t.isDone && t.categoryId == 'project')
         .toList();
 
     return Scaffold(
@@ -43,7 +43,7 @@ class ProjectDashboard extends StatelessWidget {
               ),
             )
           : GridView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
                 crossAxisSpacing: 16,

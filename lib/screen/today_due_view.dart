@@ -60,7 +60,7 @@ class _TodayDueViewState extends State<TodayDueView> {
           todo.dueDate!.month == todayStart.month &&
           todo.dueDate!.day == todayStart.day;
 
-      final isNextAction = todo.category == GtdCategory.nextAction;
+      final isNextAction = todo.categoryId == 'nextAction';
 
       return isDueToday || isNextAction;
     }).toList();
@@ -145,7 +145,7 @@ class _TodayDueViewState extends State<TodayDueView> {
             ),
           ),
           if (yesterdaysWins.isNotEmpty) _buildSliverList(yesterdaysWins),
-          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
     );

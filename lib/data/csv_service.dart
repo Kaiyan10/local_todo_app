@@ -8,6 +8,7 @@ import 'package:universal_html/html.dart' as html;
 import 'package:universal_io/io.dart' as io;
 
 import 'todo.dart';
+import 'settings_service.dart';
 
 class CsvService {
   String generateCsvContent(List<Todo> todos) {
@@ -27,7 +28,7 @@ class CsvService {
     for (var todo in todos) {
       rows.add([
         todo.title,
-        todo.category.name,
+        SettingsService().getCategoryName(todo.categoryId),
         todo.isDone ? 1 : 0,
         todo.priority.name,
         todo.dueDate?.toIso8601String() ?? '',
@@ -85,10 +86,14 @@ class CsvService {
             final title = row[0].toString();
 
             final categoryName = row.length > 1 ? row[1].toString() : 'inbox';
-            final category = GtdCategory.values.firstWhere(
-              (e) => e.name == categoryName,
-              orElse: () => GtdCategory.inbox,
-            );
+            // Simple import strategy: find matching name, else default to inbox (or create new?)
+            // For now, let's map back to ID if it matches a known category name (case insensitive?)
+            // Actually, CSV export exported DISPLAY NAME.
+            // So we need to find category ID by display name.
+            final categoryId = SettingsService().categories.firstWhere(
+              (c) => c.name == categoryName,
+              orElse: () => SettingsService().categories.firstWhere((c) => c.id == 'inbox'),
+            ).id;
 
             final isDoneVal = row.length > 2 ? row[2] : 0;
             final isDone =
@@ -117,7 +122,7 @@ class CsvService {
 
             return Todo(
               title: title,
-              category: category,
+              categoryId: categoryId,
               isDone: isDone,
               priority: priority,
               dueDate: dueDate,

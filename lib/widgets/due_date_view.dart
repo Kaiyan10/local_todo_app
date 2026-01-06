@@ -11,6 +11,7 @@ class DueDateView extends StatefulWidget {
     required this.onToggle,
     this.onTodoChanged,
     this.onPromote,
+    this.onDelete,
   });
 
   final List<Todo> todos;
@@ -19,14 +20,30 @@ class DueDateView extends StatefulWidget {
   final Function(Todo, bool?) onToggle;
   final Function(Todo)? onTodoChanged;
   final Function(Todo, Todo)? onPromote;
+  final Function(Todo)? onDelete;
 
   @override
   State<DueDateView> createState() => _DueDateViewState();
 }
 
 class _DueDateViewState extends State<DueDateView> {
+  late List<MapEntry<String, List<Todo>>> _sections;
+
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    _groupTodos();
+  }
+
+  @override
+  void didUpdateWidget(DueDateView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.todos != oldWidget.todos) {
+      _groupTodos();
+    }
+  }
+
+  void _groupTodos() {
     final sortedTodos = List<Todo>.from(widget.todos);
     sortedTodos.sort((a, b) {
       if (a.dueDate == null && b.dueDate == null) return 0;
@@ -66,18 +83,22 @@ class _DueDateViewState extends State<DueDateView> {
       }
     }
 
-    final sections = [
+    _sections = [
       if (overdue.isNotEmpty) MapEntry('期限切れ', overdue),
       if (today.isNotEmpty) MapEntry('今日', today),
       if (tomorrow.isNotEmpty) MapEntry('明日', tomorrow),
       if (later.isNotEmpty) MapEntry('以降', later),
       if (noDate.isNotEmpty) MapEntry('期限なし', noDate),
     ];
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return ListView.builder(
-      itemCount: sections.length,
+      padding: const EdgeInsets.only(bottom: 120),
+      itemCount: _sections.length,
       itemBuilder: (context, index) {
-        final section = sections[index];
+        final section = _sections[index];
         final title = section.key;
         final todos = section.value;
 
@@ -106,6 +127,7 @@ class _DueDateViewState extends State<DueDateView> {
             }
           },
           builder: (context, candidateData, rejectedData) {
+            // ... Rest of the builder code remains same logic but updated variables
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -182,6 +204,7 @@ class _DueDateViewState extends State<DueDateView> {
                             },
                             onTodoChanged: widget.onTodoChanged,
                             onPromote: widget.onPromote,
+                            onDelete: widget.onDelete,
                           ),
                         ),
                       ],

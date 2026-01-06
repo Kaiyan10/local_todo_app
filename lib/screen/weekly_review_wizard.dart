@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/todo.dart';
+import '../data/category_model.dart';
+import '../data/settings_service.dart';
 
 class WeeklyReviewWizard extends StatefulWidget {
   const WeeklyReviewWizard({
@@ -25,19 +27,19 @@ class _WeeklyReviewWizardState extends State<WeeklyReviewWizard> {
   }
 
   List<Todo> get _inboxTodos => widget.todos
-      .where((t) => !t.isDone && t.category == GtdCategory.inbox)
+      .where((t) => !t.isDone && t.categoryId == 'inbox')
       .toList();
 
   List<Todo> get _waitingForTodos => widget.todos
-      .where((t) => !t.isDone && t.category == GtdCategory.waitingFor)
+      .where((t) => !t.isDone && t.categoryId == 'waitingFor')
       .toList();
 
   List<Todo> get _somedayTodos => widget.todos
-      .where((t) => !t.isDone && t.category == GtdCategory.someday)
+      .where((t) => !t.isDone && t.categoryId == 'someday')
       .toList();
 
   List<Todo> get _projectTodos => widget.todos
-      .where((t) => !t.isDone && t.category == GtdCategory.project)
+      .where((t) => !t.isDone && t.categoryId == 'project')
       .toList();
 
   void _nextStep() {
@@ -201,22 +203,22 @@ class _WeeklyReviewWizardState extends State<WeeklyReviewWizard> {
                     return ListTile(
                       title: Text(todo.title),
                       subtitle: Text(
-                        todo.category == GtdCategory.waitingFor &&
+                        todo.categoryId == 'waitingFor' &&
                                 todo.delegatee != null
-                            ? '${todo.category.displayName} (待ち: ${todo.delegatee})'
-                            : todo.category.displayName,
+                            ? '${SettingsService().getCategoryName(todo.categoryId)} (待ち: ${todo.delegatee})'
+                            : SettingsService().getCategoryName(todo.categoryId),
                       ),
-                      trailing: PopupMenuButton<GtdCategory>(
+                      trailing: PopupMenuButton<Category>(
                         icon: const Icon(Icons.folder_open),
-                        onSelected: (GtdCategory newCategory) {
-                          final updated = todo.copyWith(category: newCategory);
+                        onSelected: (Category newCategory) {
+                          final updated = todo.copyWith(categoryId: newCategory.id);
                           widget.onUpdateTodo(updated);
                         },
                         itemBuilder: (BuildContext context) {
-                          return GtdCategory.values.map((category) {
-                            return PopupMenuItem<GtdCategory>(
+                          return SettingsService().categories.map((category) {
+                            return PopupMenuItem<Category>(
                               value: category,
-                              child: Text(category.displayName),
+                              child: Text(category.name),
                             );
                           }).toList();
                         },

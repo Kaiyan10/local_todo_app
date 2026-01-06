@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/todo.dart';
+import '../data/settings_service.dart';
 
 class ProcessInboxView extends StatefulWidget {
   const ProcessInboxView({
@@ -36,7 +37,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
   void _refreshInbox() {
     setState(() {
       _inboxTodos = widget.todos
-          .where((t) => !t.isDone && t.category == GtdCategory.inbox)
+          .where((t) => !t.isDone && t.categoryId == 'inbox')
           .toList();
       // Ensure index is valid
       if (_currentIndex >= _inboxTodos.length) {
@@ -96,7 +97,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
 
     if (result != null && result.isNotEmpty) {
       final updated = todo.copyWith(
-        category: GtdCategory.waitingFor,
+        categoryId: 'waitingFor',
         delegatee: result,
       );
       widget.onUpdateTodo(updated);
@@ -130,7 +131,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
               title: const Text('Next Action (Do it ASAP)'),
               onTap: () {
                 Navigator.pop(ctx);
-                _updateCategory(todo, GtdCategory.nextAction);
+                _updateCategory(todo, 'nextAction');
               },
             ),
             ListTile(
@@ -138,7 +139,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
               title: const Text('Project (Requires multiple steps)'),
               onTap: () {
                 Navigator.pop(ctx);
-                _updateCategory(todo, GtdCategory.project);
+                _updateCategory(todo, 'project');
               },
             ),
             ListTile(
@@ -155,8 +156,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
                 if (date != null) {
                   final updated = todo.copyWith(
                     dueDate: date,
-                    category: GtdCategory
-                        .nextAction, // Usually scheduled items are next actions on that date
+                    categoryId: 'nextAction', // Usually scheduled items are next actions on that date
                   );
                   widget.onUpdateTodo(updated);
                   _advance();
@@ -168,7 +168,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
               title: const Text('Someday / Maybe'),
               onTap: () {
                 Navigator.pop(ctx);
-                _updateCategory(todo, GtdCategory.someday);
+                _updateCategory(todo, 'someday');
               },
             ),
           ],
@@ -177,11 +177,11 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
     );
   }
 
-  void _updateCategory(Todo todo, GtdCategory newCategory) {
-    final updated = todo.copyWith(category: newCategory);
+  void _updateCategory(Todo todo, String newCategoryId) {
+    final updated = todo.copyWith(categoryId: newCategoryId);
     widget.onUpdateTodo(updated);
     _advance();
-    _showSnackBar('Moved to ${newCategory.displayName}');
+    _showSnackBar('Moved to ${SettingsService().getCategoryName(newCategoryId)}');
   }
 
   void _processDelete() {
@@ -259,7 +259,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
                 _inboxTodos.length <
                     widget.todos
                         .where(
-                          (t) => t.category == GtdCategory.inbox && !t.isDone,
+                          (t) => t.categoryId == 'inbox' && !t.isDone,
                         )
                         .length
                 ? 1 -
@@ -267,7 +267,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
                           ((widget.todos
                                   .where(
                                     (t) =>
-                                        t.category == GtdCategory.inbox &&
+                                        t.categoryId == 'inbox' &&
                                         !t.isDone,
                                   )
                                   .length) +

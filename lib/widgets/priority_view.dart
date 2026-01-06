@@ -11,6 +11,7 @@ class PriorityView extends StatefulWidget {
     required this.onToggle,
     this.onTodoChanged,
     this.onPromote,
+    this.onDelete,
   });
 
   final List<Todo> todos;
@@ -19,19 +20,47 @@ class PriorityView extends StatefulWidget {
   final Function(Todo, bool?) onToggle;
   final Function(Todo)? onTodoChanged;
   final Function(Todo, Todo)? onPromote;
+  final Function(Todo)? onDelete;
 
   @override
   State<PriorityView> createState() => _PriorityViewState();
 }
 
 class _PriorityViewState extends State<PriorityView> {
+  late Map<Priority, List<Todo>> _groupedTodos;
+
+  @override
+  void initState() {
+    super.initState();
+    _groupTodos();
+  }
+
+  @override
+  void didUpdateWidget(PriorityView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.todos != oldWidget.todos) {
+      _groupTodos();
+    }
+  }
+
+  void _groupTodos() {
+    _groupedTodos = {};
+    for (var todo in widget.todos) {
+      _groupedTodos.putIfAbsent(todo.priority, () => []).add(todo);
+    }
+     // Pre-sort
+    for (var list in _groupedTodos.values) {
+      list.sort((a, b) {
+        if (a.dueDate == null && b.dueDate == null) return 0;
+        if (a.dueDate == null) return 1;
+        if (b.dueDate == null) return -1;
+        return a.dueDate!.compareTo(b.dueDate!);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final groupedTodos = <Priority, List<Todo>>{};
-    for (var todo in widget.todos) {
-      groupedTodos.putIfAbsent(todo.priority, () => []).add(todo);
-    }
-
     // Sort priorities: High -> Medium -> Low -> None
     final priorities = [
       Priority.high,
@@ -41,16 +70,11 @@ class _PriorityViewState extends State<PriorityView> {
     ];
 
     return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 120),
       itemCount: priorities.length,
       itemBuilder: (context, index) {
         final priority = priorities[index];
-        final todos = groupedTodos[priority] ?? [];
-        todos.sort((a, b) {
-          if (a.dueDate == null && b.dueDate == null) return 0;
-          if (a.dueDate == null) return 1;
-          if (b.dueDate == null) return -1;
-          return a.dueDate!.compareTo(b.dueDate!);
-        });
+        final todos = _groupedTodos[priority] ?? [];
 
         return DragTarget<Todo>(
           onWillAccept: (data) => data != null && data.priority != priority,
@@ -135,6 +159,7 @@ class _PriorityViewState extends State<PriorityView> {
                             },
                             onTodoChanged: widget.onTodoChanged,
                             onPromote: widget.onPromote,
+                            onDelete: widget.onDelete,
                           ),
                         ),
                       ],

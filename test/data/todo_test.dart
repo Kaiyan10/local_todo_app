@@ -18,7 +18,7 @@ void main() {
 
       expect(todo.id, 1);
       expect(todo.title, 'Test Todo');
-      expect(todo.category, GtdCategory.inbox);
+      expect(todo.categoryId, 'inbox');
       expect(todo.isDone, false);
       expect(todo.tags, ['tag1', 'tag2']);
       expect(todo.priority, Priority.high);
@@ -36,7 +36,7 @@ void main() {
       final todo = Todo(
         id: 1,
         title: 'Test Todo',
-        category: GtdCategory.project,
+        categoryId: 'project',
         isDone: true,
         priority: Priority.medium,
         repeatPattern: RepeatPattern.weekly,
@@ -47,7 +47,7 @@ void main() {
 
       expect(json['id'], 1);
       expect(json['title'], 'Test Todo');
-      expect(json['category'], 'project'); // enum name
+      expect(json['category'], 'project');
       expect(json['isDone'], true);
       expect(json['priority'], 'medium');
       expect(json['repeatPattern'], 'weekly');
@@ -60,7 +60,7 @@ void main() {
 
       expect(updated.title, 'Updated');
       expect(updated.isDone, true);
-      expect(updated.category, todo.category); // Should remain default
+      expect(updated.categoryId, todo.categoryId); // Should remain default
     });
   });
 

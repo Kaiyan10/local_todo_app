@@ -11,6 +11,7 @@ class DelegatedView extends StatefulWidget {
     required this.onToggle,
     this.onTodoChanged,
     this.onPromote,
+    this.onDelete,
   });
 
   final List<Todo> todos;
@@ -19,20 +20,55 @@ class DelegatedView extends StatefulWidget {
   final Function(Todo, bool?) onToggle;
   final Function(Todo)? onTodoChanged;
   final Function(Todo, Todo)? onPromote;
+  final Function(Todo)? onDelete;
 
   @override
   State<DelegatedView> createState() => _DelegatedViewState();
 }
 
 class _DelegatedViewState extends State<DelegatedView> {
+  late List<Todo> _delegatedTodos;
+  late Map<String, List<Todo>> _groupedTodos;
+  late List<String> _sortedKeys;
+
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    _groupTodos();
+  }
+
+  @override
+  void didUpdateWidget(DelegatedView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.todos != oldWidget.todos) {
+      _groupTodos();
+    }
+  }
+
+  void _groupTodos() {
     // 1. Filter for Waiting For tasks
-    final delegatedTodos = widget.todos
-        .where((t) => t.category == GtdCategory.waitingFor && !t.isDone)
+    _delegatedTodos = widget.todos
+        .where((t) => t.categoryId == 'waitingFor' && !t.isDone)
         .toList();
 
-    if (delegatedTodos.isEmpty) {
+    // 2. Group by delegatee
+    _groupedTodos = {};
+    for (var todo in _delegatedTodos) {
+      final name = todo.delegatee?.isNotEmpty == true
+          ? todo.delegatee!
+          : '担当者なし';
+      if (!_groupedTodos.containsKey(name)) {
+        _groupedTodos[name] = [];
+      }
+      _groupedTodos[name]!.add(todo);
+    }
+
+    _sortedKeys = _groupedTodos.keys.toList()..sort();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_delegatedTodos.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -50,26 +86,12 @@ class _DelegatedViewState extends State<DelegatedView> {
       );
     }
 
-    // 2. Group by delegatee
-    final Map<String, List<Todo>> groupedTodos = {};
-    for (var todo in delegatedTodos) {
-      final name = todo.delegatee?.isNotEmpty == true
-          ? todo.delegatee!
-          : '担当者なし';
-      if (!groupedTodos.containsKey(name)) {
-        groupedTodos[name] = [];
-      }
-      groupedTodos[name]!.add(todo);
-    }
-
-    final sortedKeys = groupedTodos.keys.toList()..sort();
-
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
-      itemCount: sortedKeys.length,
+      padding: const EdgeInsets.only(bottom: 120),
+      itemCount: _sortedKeys.length,
       itemBuilder: (context, index) {
-        final delegatee = sortedKeys[index];
-        final todos = groupedTodos[delegatee]!;
+        final delegatee = _sortedKeys[index];
+        final todos = _groupedTodos[delegatee]!;
 
         return DragTarget<Todo>(
           onWillAccept: (data) => data != null, // Accept any todo
@@ -80,7 +102,7 @@ class _DelegatedViewState extends State<DelegatedView> {
               final updatedTodo = data.copyWith(
                 delegatee: isUnassigned ? null : delegatee,
                 resetDelegatee: isUnassigned,
-                category: GtdCategory.waitingFor, // Implicitly ensure it's in Waiting For
+                categoryId: 'waitingFor', // Implicitly ensure it's in Waiting For
               );
               widget.onTodoChanged!(updatedTodo);
             }
@@ -169,6 +191,7 @@ class _DelegatedViewState extends State<DelegatedView> {
                                 onCheckboxChanged: (val) => widget.onToggle(todo, val),
                                 onTodoChanged: widget.onTodoChanged,
                                 onPromote: widget.onPromote,
+                                onDelete: widget.onDelete,
                               ),
                             ),
                           ],

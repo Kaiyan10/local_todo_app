@@ -12,6 +12,7 @@ class ContextView extends StatefulWidget {
     required this.onToggle,
     this.onTodoChanged,
     this.onPromote,
+    this.onDelete,
   });
 
   final List<Todo> todos;
@@ -20,6 +21,7 @@ class ContextView extends StatefulWidget {
   final Function(Todo, bool?) onToggle;
   final Function(Todo)? onTodoChanged;
   final Function(Todo, Todo)? onPromote;
+  final Function(Todo)? onDelete;
 
   @override
   State<ContextView> createState() => _ContextViewState();
@@ -27,16 +29,34 @@ class ContextView extends StatefulWidget {
 
 class _ContextViewState extends State<ContextView> {
   String? _selectedContext;
+  late Map<String, List<Todo>> _groupedTodos;
+
+  @override
+  void initState() {
+    super.initState();
+    _groupTodos();
+  }
+
+  @override
+  void didUpdateWidget(ContextView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.todos != oldWidget.todos) {
+      _groupTodos();
+    }
+  }
+
+  void _groupTodos() {
+    _groupedTodos = {};
+    for (var todo in widget.todos) {
+      _groupedTodos.putIfAbsent(todo.categoryId, () => []).add(todo);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Get contexts from SettingsService + any used in actual todos to be safe
+    // Get contexts from SettingsService
     final availableContexts = SettingsService().contexts;
-
-    // Determine displayed todos
-    final displayTodos = _selectedContext == null
-        ? widget.todos
-        : widget.todos.where((t) => t.tags.contains(_selectedContext)).toList();
+    final categories = SettingsService().categories;
 
     return Column(
       children: [
@@ -68,29 +88,57 @@ class _ContextViewState extends State<ContextView> {
           ),
         ),
 
-        // Todo List
+        // Grouped Todo List (Categories)
         Expanded(
-          child: displayTodos.isEmpty
-              ? Center(
-                  child: Text(
-                    _selectedContext != null
-                        ? '$_selectedContext のタスクはありません'
-                        : 'タスクがありません',
-                    style: Theme.of(context).textTheme.bodyLarge,
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 120),
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              var todos = _groupedTodos[category.id] ?? [];
+              
+              // Filter todos for this category AND the selected context
+              // Note: _groupedTodos is already grouped by category.
+              // So we just need to filter by context.
+              if (_selectedContext != null) {
+                todos = todos.where((t) => t.tags.contains(_selectedContext)).toList();
+              }
+
+              // If filtering by context, hide empty categories
+              if (todos.isEmpty && _selectedContext != null) {
+                return const SizedBox.shrink();
+              }
+              // If NO context selected, hide empty categories?
+              // Existing logic said "hide empty categories to avoid clutter"
+              if (todos.isEmpty) {
+                 return const SizedBox.shrink();
+              }
+
+              return ExpansionTile(
+                initiallyExpanded: true,
+                title: Text(
+                  category.name,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                )
-              : ListView.builder(
-                  itemCount: displayTodos.length,
-                  itemBuilder: (context, index) {
-                    final todo = displayTodos[index];
-                    return TodoCard(
+                ),
+                children: todos.map((todo) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: TodoCard(
                       todo: todo,
                       onEdit: () => widget.onEdit(todo),
                       onCheckboxChanged: (val) => widget.onToggle(todo, val),
                       onTodoChanged: widget.onTodoChanged,
-                    );
-                  },
-                ),
+                      onPromote: widget.onPromote,
+                      onDelete: widget.onDelete,
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
         ),
       ],
     );

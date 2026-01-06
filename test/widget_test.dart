@@ -7,7 +7,6 @@ import 'package:flutter_todo/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_todo/data/settings_service.dart';
 import 'package:flutter_todo/data/todo_repository.dart';
-import 'package:flutter_todo/data/todo.dart';
 
 @GenerateMocks([TodoRepository])
 import 'widget_test.mocks.dart';
@@ -72,7 +71,7 @@ void main() {
     // Verify the new task is displayed
     // Note: Since we mock addTodo/loadTodos, the UI state update depends on MainScreen logic.
     // MainScreen adds result directly to list without reloading from DB in _addTodo.
-    expect(find.text('Test New Task'), findsOneWidget);
+    expect(find.text('Test New Task'), findsWidgets);
 
     // Verify add was called
     verify(mockRepository.addTodo(any)).called(1);

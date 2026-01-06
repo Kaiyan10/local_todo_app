@@ -2,7 +2,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_todo/data/csv_service.dart';
 import 'package:flutter_todo/data/todo.dart';
 
+import 'package:flutter_todo/data/settings_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 void main() {
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await SettingsService().init();
+  });
+
   group('CsvService Tests', () {
     final csvService = CsvService();
 
@@ -11,7 +19,7 @@ void main() {
         Todo(
           id: 1,
           title: 'Task 1',
-          category: GtdCategory.inbox,
+          categoryId: 'inbox',
           isDone: false,
           priority: Priority.low,
           tags: ['t1'],
@@ -19,7 +27,7 @@ void main() {
         Todo(
           id: 2,
           title: 'Task 2',
-          category: GtdCategory.project,
+          categoryId: 'project',
           isDone: true,
           priority: Priority.high,
           tags: ['t2', 'urgent'],
@@ -34,12 +42,12 @@ void main() {
         csv,
         contains('title,category,isDone,priority,dueDate,note,tags,url'),
       );
-      expect(csv, contains('Task 1,inbox,0,low,,,t1,'));
+      expect(csv, contains('Task 1,Inbox,0,low,,,t1,'));
       // Note: DateTime default string format might vary slightly or be precise, standard checks usually safe if simple
       expect(
         csv,
         contains(
-          'Task 2,project,1,high,2023-01-01T00:00:00.000,A note,t2;urgent,',
+          'Task 2,Project,1,high,2023-01-01T00:00:00.000,A note,t2;urgent,',
         ),
       );
     });
@@ -47,8 +55,8 @@ void main() {
     test('parseCsvContent parses CSV string correctly', () {
       const csv = '''
 title,category,isDone,priority,dueDate,note,tags,url
-Task 1,inbox,0,low,,,t1,
-Task 2,project,1,high,2023-01-01T00:00:00.000,A note,t2;urgent,
+Task 1,Inbox,0,low,,,t1,
+Task 2,Project,1,high,2023-01-01T00:00:00.000,A note,t2;urgent,
 ''';
 
       final todos = csvService.parseCsvContent(csv);
@@ -56,13 +64,13 @@ Task 2,project,1,high,2023-01-01T00:00:00.000,A note,t2;urgent,
       expect(todos.length, 2);
 
       expect(todos[0].title, 'Task 1');
-      expect(todos[0].category, GtdCategory.inbox);
+      expect(todos[0].categoryId, 'inbox');
       expect(todos[0].isDone, false);
       expect(todos[0].priority, Priority.low);
       expect(todos[0].tags, ['t1']);
 
       expect(todos[1].title, 'Task 2');
-      expect(todos[1].category, GtdCategory.project);
+      expect(todos[1].categoryId, 'project');
       expect(todos[1].isDone, true);
       expect(todos[1].priority, Priority.high);
       expect(todos[1].tags, ['t2', 'urgent']);
@@ -90,7 +98,7 @@ Task 1
 
       expect(todos.length, 1);
       expect(todos[0].title, 'Task 1');
-      expect(todos[0].category, GtdCategory.inbox);
+      expect(todos[0].categoryId, 'inbox');
     });
   });
 }

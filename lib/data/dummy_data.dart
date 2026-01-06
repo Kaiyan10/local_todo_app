@@ -1,13 +1,13 @@
 import 'todo.dart';
 
 final List<Todo> dummyTodos = [
-  Todo(title: '牛乳を買う', category: GtdCategory.nextAction),
-  Todo(title: '犬の散歩', category: GtdCategory.nextAction),
-  Todo(title: 'Flutterの勉強', category: GtdCategory.project, note: 'UIのリファクタリング'),
-  Todo(title: '読書', category: GtdCategory.someday),
+  Todo(title: '牛乳を買う', categoryId: 'nextAction'),
+  Todo(title: '犬の散歩', categoryId: 'nextAction'),
+  Todo(title: 'Flutterの勉強', categoryId: 'project', note: 'UIのリファクタリング'),
+  Todo(title: '読書', categoryId: 'someday'),
   Todo(
     title: 'チームミーティング',
-    category: GtdCategory.nextAction,
+    categoryId: 'nextAction',
     priority: Priority.high,
   ),
   Todo(title: '掃除'), // Default Inbox
