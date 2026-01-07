@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local configuration files
+build_log.txt
+analysis.txt
+test_output.txt
+test_output_utf8.txt
+
+# Windows temporary files
+windows/flutter/ephemeral/
