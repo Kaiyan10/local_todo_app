@@ -45,10 +45,10 @@ void main() {
     );
 
     // Verify FAB is present
-    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
 
     // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
     // Verify we are on the Add Task screen
@@ -75,7 +75,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify we are back on the dashboard
-    expect(find.text('localTodo'), findsOneWidget); // AppBar title
+    expect(find.text('local worker\'s todo'), findsOneWidget); // AppBar title
 
     // Verify the new task is displayed
     // Note: Since we mock addTodo/loadTodos, the UI state update depends on MainScreen logic.

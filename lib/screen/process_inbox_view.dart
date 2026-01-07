@@ -65,7 +65,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
     );
     widget.onUpdateTodo(updated);
     _advance();
-    _showSnackBar('Marked as Done! (2 min rule)');
+    _showSnackBar('完了としてマークしました! (2分ルール)');
   }
 
   Future<void> _processDelegate() async {
@@ -76,7 +76,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('タスクを依頼する'),
+        title: const Text('タスクを委任する'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: '誰に依頼する?'),
@@ -102,7 +102,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
       );
       widget.onUpdateTodo(updated);
       _advance();
-      _showSnackBar('Delegated to $result');
+      _showSnackBar('$result に委任しました');
     }
   }
 
@@ -122,7 +122,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
           children: [
             ListTile(
               title: Text(
-                'Defer to...',
+                '延期選択...',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
@@ -181,7 +181,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
     final updated = todo.copyWith(categoryId: newCategoryId);
     widget.onUpdateTodo(updated);
     _advance();
-    _showSnackBar('Moved to ${SettingsService().getCategoryName(newCategoryId)}');
+    _showSnackBar('${SettingsService().getCategoryName(newCategoryId)} に移動しました');
   }
 
   void _processDelete() {
@@ -192,7 +192,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
       todo,
     ); // Assuming parent handles deletion or we maintain list
     _advance();
-    _showSnackBar('Deleted task');
+    _showSnackBar('タスクを削除しました');
   }
 
   void _advance() {
@@ -217,7 +217,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
   Widget build(BuildContext context) {
     if (_inboxTodos.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Process Inbox')),
+        appBar: AppBar(title: const Text('Inbox処理')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -233,11 +233,11 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
-              const Text('All items processed. Great job!'),
+              const Text('すべてのアイテムを処理しました。お疲れ様でした!'),
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Back to Dashboard'),
+                child: const Text('ダッシュボードに戻る'),
               ),
             ],
           ),
@@ -249,7 +249,7 @@ class _ProcessInboxViewState extends State<ProcessInboxView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Process Inbox (${_inboxTodos.length} remaining)'),
+        title: Text('Inbox処理 (残り ${_inboxTodos.length} 件)'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Column(

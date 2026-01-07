@@ -418,6 +418,16 @@ class _TodoAddViewState extends State<TodoAddView> {
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
+                        label: const Text('来週金曜日'),
+                        onPressed: () {
+                          final now = DateTime.now();
+                          final daysToNextWeekMonday = 8 - now.weekday;
+                          _setDate(now.add(Duration(days: daysToNextWeekMonday + 4)));
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      const SizedBox(width: 8),
+                      ActionChip(
                         label: const Text('月末'),
                         onPressed: () {
                           final now = DateTime.now();

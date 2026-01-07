@@ -258,7 +258,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
       return Scaffold(
       appBar: AppBar(
-        title: const Text('localTodo'),
+        title: const Text('local worker\'s todo'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           // Show/Hide Completed Toggle

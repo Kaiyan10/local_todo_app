@@ -23,7 +23,7 @@ class ProjectDashboard extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Project Portfolio'),
+        title: const Text('プロジェクト・ポートフォリオ'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: projects.isEmpty
@@ -34,7 +34,7 @@ class ProjectDashboard extends StatelessWidget {
                   const Icon(Icons.folder_open, size: 64, color: Colors.grey),
                   const SizedBox(height: 16),
                   Text(
-                    'No Active Projects',
+                    '進行中のプロジェクトはありません',
                     style: Theme.of(
                       context,
                     ).textTheme.titleLarge?.copyWith(color: Colors.grey),

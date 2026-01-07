@@ -14,6 +14,7 @@ class TodoCard extends StatefulWidget {
     this.onTodoChanged,
     this.onPromote,
     this.onDelete,
+    this.parentTitle,
   });
 
   final Todo todo;
@@ -22,6 +23,7 @@ class TodoCard extends StatefulWidget {
   final Function(Todo)? onTodoChanged;
   final Function(Todo, Todo)? onPromote;
   final Function(Todo)? onDelete;
+  final String? parentTitle;
 
   @override
   State<TodoCard> createState() => _TodoCardState();
@@ -416,7 +418,8 @@ class _TodoCardState extends State<TodoCard> {
         (widget.todo.categoryId == 'waitingFor' &&
             widget.todo.delegatee != null) ||
         widget.todo.subTasks.isNotEmpty ||
-        (widget.todo.note != null && widget.todo.note!.isNotEmpty);
+        (widget.todo.note != null && widget.todo.note!.isNotEmpty) ||
+        widget.parentTitle != null; // Added parentTitle check
 
     if (!hasMetadata) return const SizedBox.shrink();
 
@@ -425,6 +428,26 @@ class _TodoCardState extends State<TodoCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (widget.parentTitle != null) // Display parent title if available
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2.0),
+              child: Row(
+                children: [
+                   Icon(Icons.subdirectory_arrow_right, size: 12, color: Colors.grey),
+                   const SizedBox(width: 4),
+                   Expanded(
+                     child: Text(
+                      '親: ${widget.parentTitle}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                   ),
+                ],
+              ),
+            ),
           if (widget.todo.note != null && widget.todo.note!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 4.0), // Reduced bottom padding

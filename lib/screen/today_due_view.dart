@@ -37,22 +37,22 @@ class _TodayDueViewState extends State<TodayDueView> {
     final todayStart = DateTime(now.year, now.month, now.day);
     final yesterdayStart = todayStart.subtract(const Duration(days: 1));
 
-    // Flatten task hierarchy to include subtasks
+    // Flatten task hierarchy to include subtasks with parent info
     final allTodos = _flattenTodos(widget.todos);
 
-    // 1. ブロッカー
-    final blockers = allTodos.where((todo) {
+    // 1. Overdue (期限切れ)
+    final overdue = allTodos.where((item) {
+      final todo = item.todo;
       if (todo.isDone) return false;
-      final isHigh = todo.priority == Priority.high;
-      final isOverdue =
-          todo.dueDate != null && todo.dueDate!.isBefore(todayStart);
-      return isHigh || isOverdue;
+      return todo.dueDate != null && todo.dueDate!.isBefore(todayStart);
     }).toList();
 
-    // 2. 今日の予定
-    final todaysPlan = allTodos.where((todo) {
+    // 2. 今日の予定 (Today's Plan)
+    final todaysPlan = allTodos.where((item) {
+      final todo = item.todo;
       if (todo.isDone) return false;
-      if (blockers.contains(todo)) return false;
+      // Overdueに含まれるものは除外
+      if (overdue.contains(item)) return false;
 
       final isDueToday =
           todo.dueDate != null &&
@@ -60,13 +60,23 @@ class _TodayDueViewState extends State<TodayDueView> {
           todo.dueDate!.month == todayStart.month &&
           todo.dueDate!.day == todayStart.day;
 
-      final isNextAction = todo.categoryId == 'nextAction';
-
-      return isDueToday || isNextAction;
+      return isDueToday;
     }).toList();
 
-    // 3. 昨日の成果
-    final yesterdaysWins = allTodos.where((todo) {
+    // 3. ブロッカー (High Priority) - 残りのHigh Priority
+    final blockers = allTodos.where((item) {
+      final todo = item.todo;
+      if (todo.isDone) return false;
+      // 既にOverdueかToday's Planに含まれているものは除外
+      if (overdue.contains(item)) return false;
+      if (todaysPlan.contains(item)) return false;
+
+      return todo.priority == Priority.high;
+    }).toList();
+
+    // 4. 昨日の成果
+    final yesterdaysWins = allTodos.where((item) {
+      final todo = item.todo;
       if (!todo.isDone || todo.lastCompletedDate == null) return false;
       return todo.lastCompletedDate!.isAfter(yesterdayStart) &&
           todo.lastCompletedDate!.isBefore(
@@ -85,8 +95,9 @@ class _TodayDueViewState extends State<TodayDueView> {
             onPressed: () {
               _copySummaryToClipboard(
                 context,
-                blockers,
+                overdue,
                 todaysPlan,
+                blockers,
                 yesterdaysWins,
               );
             },
@@ -95,23 +106,26 @@ class _TodayDueViewState extends State<TodayDueView> {
       ),
       body: CustomScrollView(
         slivers: [
+          // 1. Overdue
           SliverPadding(
             padding: const EdgeInsets.all(16.0),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _buildSectionHeader(
                   context,
-                  '🚫 Blockers / Overdue',
-                  blockers.length,
+                  '⚠️ Overdue',
+                  overdue.length,
                   Colors.red,
                 ),
-                if (blockers.isEmpty)
-                  _buildEmptyState('ブロッカーなし、順調です！', Icons.check_circle_outline),
+                if (overdue.isEmpty)
+                  _buildEmptyState('期限切れタスクはありません！', Icons.check_circle_outline),
               ]),
             ),
           ),
-          if (blockers.isNotEmpty) _buildSliverList(blockers),
+          if (overdue.isNotEmpty) _buildSliverList(overdue),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+          // 2. Today's Plan
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             sliver: SliverList(
@@ -129,6 +143,27 @@ class _TodayDueViewState extends State<TodayDueView> {
           ),
           if (todaysPlan.isNotEmpty) _buildSliverList(todaysPlan),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+          // 3. Blockers (High Priority)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildSectionHeader(
+                  context,
+                  '🚫 Blockers (High Priority)',
+                  blockers.length,
+                  Colors.orange,
+                ),
+                if (blockers.isEmpty)
+                  _buildEmptyState('優先度の高い残タスクはありません。', Icons.verified_user),
+              ]),
+            ),
+          ),
+          if (blockers.isNotEmpty) _buildSliverList(blockers),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+          // 4. Yesterday's Wins
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             sliver: SliverList(
@@ -206,14 +241,16 @@ class _TodayDueViewState extends State<TodayDueView> {
     );
   }
 
-  SliverList _buildSliverList(List<Todo> todos) {
+  SliverList _buildSliverList(List<({Todo todo, String? parentTitle})> items) {
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
-        final todo = todos[index];
+        final item = items[index];
+        final todo = item.todo;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
           child: TodoCard(
             todo: todo,
+            parentTitle: item.parentTitle,
             onEdit: () => widget.onEdit(todo),
             onCheckboxChanged: (value) {
               // 即時のUI応答のための楽観的更新
@@ -230,15 +267,16 @@ class _TodayDueViewState extends State<TodayDueView> {
             },
           ),
         );
-      }, childCount: todos.length),
+      }, childCount: items.length),
     );
   }
 
   void _copySummaryToClipboard(
     BuildContext context,
-    List<Todo> blockers,
-    List<Todo> todaysPlan,
-    List<Todo> wins,
+    List<({Todo todo, String? parentTitle})> overdue,
+    List<({Todo todo, String? parentTitle})> todaysPlan,
+    List<({Todo todo, String? parentTitle})> blockers,
+    List<({Todo todo, String? parentTitle})> wins,
   ) {
     final buffer = StringBuffer();
     final today = DateFormat.yMd().format(DateTime.now());
@@ -246,12 +284,14 @@ class _TodayDueViewState extends State<TodayDueView> {
     buffer.writeln('# Daily Standup [$today]');
     buffer.writeln();
 
-    buffer.writeln('## 🚫 Blockers');
-    if (blockers.isEmpty) {
+    buffer.writeln('## ⚠️ Overdue');
+    if (overdue.isEmpty) {
       buffer.writeln('None');
     } else {
-      for (final todo in blockers) {
-        buffer.writeln('- [ ] ${todo.title} (Priority: ${todo.priority.name})');
+      for (final item in overdue) {
+        final todo = item.todo;
+        final parentInfo = item.parentTitle != null ? ' (Parent: ${item.parentTitle})' : '';
+        buffer.writeln('- [ ] ${todo.title} (Due: ${DateFormat.yMd().format(todo.dueDate!)}) $parentInfo');
       }
     }
     buffer.writeln();
@@ -260,8 +300,22 @@ class _TodayDueViewState extends State<TodayDueView> {
     if (todaysPlan.isEmpty) {
       buffer.writeln('None');
     } else {
-      for (final todo in todaysPlan) {
-        buffer.writeln('- [ ] ${todo.title}');
+      for (final item in todaysPlan) {
+        final todo = item.todo;
+        final parentInfo = item.parentTitle != null ? ' (Parent: ${item.parentTitle})' : '';
+        buffer.writeln('- [ ] ${todo.title}$parentInfo');
+      }
+    }
+    buffer.writeln();
+
+    buffer.writeln('## 🚫 Blockers (High Priority)');
+    if (blockers.isEmpty) {
+      buffer.writeln('None');
+    } else {
+      for (final item in blockers) {
+        final todo = item.todo;
+        final parentInfo = item.parentTitle != null ? ' (Parent: ${item.parentTitle})' : '';
+        buffer.writeln('- [ ] ${todo.title} (Priority: ${todo.priority.name})$parentInfo');
       }
     }
     buffer.writeln();
@@ -270,8 +324,10 @@ class _TodayDueViewState extends State<TodayDueView> {
     if (wins.isEmpty) {
       buffer.writeln('None');
     } else {
-      for (final todo in wins) {
-        buffer.writeln('- [x] ${todo.title}');
+      for (final item in wins) {
+         final todo = item.todo;
+         final parentInfo = item.parentTitle != null ? ' (Parent: ${item.parentTitle})' : '';
+        buffer.writeln('- [x] ${todo.title}$parentInfo');
       }
     }
 
@@ -281,7 +337,10 @@ class _TodayDueViewState extends State<TodayDueView> {
     );
   }
 
-  List<Todo> _flattenTodos(List<Todo> tasks) {
-    return tasks.expand((t) => [t, ..._flattenTodos(t.subTasks)]).toList();
+  List<({Todo todo, String? parentTitle})> _flattenTodos(List<Todo> tasks, [String? parentTitle]) {
+    return tasks.expand((t) => [
+      (todo: t, parentTitle: parentTitle),
+      ..._flattenTodos(t.subTasks, t.title)
+    ]).toList();
   }
 }

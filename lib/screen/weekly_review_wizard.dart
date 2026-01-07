@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/todo.dart';
 import '../data/category_model.dart';
 import '../data/settings_service.dart';
+import 'todo_add_view.dart';
 
 class WeeklyReviewWizard extends StatefulWidget {
   const WeeklyReviewWizard({
@@ -21,24 +22,40 @@ class WeeklyReviewWizard extends StatefulWidget {
 
 class _WeeklyReviewWizardState extends State<WeeklyReviewWizard> {
   int _currentStep = 0;
+  late List<Todo> _localTodos;
+
   @override
   void initState() {
     super.initState();
+    _localTodos = List.from(widget.todos);
   }
 
-  List<Todo> get _inboxTodos => widget.todos
+  @override
+  void didUpdateWidget(WeeklyReviewWizard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.todos != oldWidget.todos) {
+      // Logic to preserve local updates if parent updates might be tricky.
+      // For now, simpler to just re-sync if parent pushes new data, 
+      // but usually this wizard is a modal flow where parent doesn't auto-update it unless we callback.
+      // If we callback, parent updates, and might rebuild us.
+      // We should probably respect the new list but keep our position.
+      _localTodos = List.from(widget.todos);
+    }
+  }
+
+  List<Todo> get _inboxTodos => _localTodos
       .where((t) => !t.isDone && t.categoryId == 'inbox')
       .toList();
 
-  List<Todo> get _waitingForTodos => widget.todos
+  List<Todo> get _waitingForTodos => _localTodos
       .where((t) => !t.isDone && t.categoryId == 'waitingFor')
       .toList();
 
-  List<Todo> get _somedayTodos => widget.todos
+  List<Todo> get _somedayTodos => _localTodos
       .where((t) => !t.isDone && t.categoryId == 'someday')
       .toList();
 
-  List<Todo> get _projectTodos => widget.todos
+  List<Todo> get _projectTodos => _localTodos
       .where((t) => !t.isDone && t.categoryId == 'project')
       .toList();
 
@@ -46,6 +63,17 @@ class _WeeklyReviewWizardState extends State<WeeklyReviewWizard> {
     setState(() {
       _currentStep++;
     });
+  }
+
+  // Common update handler
+  void _handleUpdate(Todo updated) {
+    setState(() {
+      final index = _localTodos.indexWhere((t) => t.id == updated.id);
+      if (index != -1) {
+        _localTodos[index] = updated;
+      }
+    });
+    widget.onUpdateTodo(updated);
   }
 
   @override
@@ -91,12 +119,7 @@ class _WeeklyReviewWizardState extends State<WeeklyReviewWizard> {
       case 2:
         return _buildProjectReviewList();
       case 3:
-        return _buildReviewList(
-          title: 'Waiting Forの確認',
-          description: '返事待ちのタスクを確認しましょう。\n解決していれば完了にするか、アクションが必要ならカテゴリを変更します。',
-          todos: _waitingForTodos,
-          emptyMessage: '待ち状態のタスクはありません。',
-        );
+        return _buildWaitingForReviewList();
       case 4:
         return _buildReviewList(
           title: 'Someday/Maybeの棚卸し',
@@ -212,7 +235,7 @@ class _WeeklyReviewWizardState extends State<WeeklyReviewWizard> {
                         icon: const Icon(Icons.folder_open),
                         onSelected: (Category newCategory) {
                           final updated = todo.copyWith(categoryId: newCategory.id);
-                          widget.onUpdateTodo(updated);
+                          _handleUpdate(updated);
                         },
                         itemBuilder: (BuildContext context) {
                           return SettingsService().categories.map((category) {
@@ -228,11 +251,97 @@ class _WeeklyReviewWizardState extends State<WeeklyReviewWizard> {
                         onPressed: () {
                           // Mark as done
                           final updated = todo.copyWith(isDone: true);
-                          widget.onUpdateTodo(updated);
+                          _handleUpdate(updated);
                         },
                       ),
                     );
                   },
+                ),
+        ),
+      ],
+    );
+  }
+
+
+  Widget _buildWaitingForReviewList() {
+    final todos = _waitingForTodos;
+
+    final Map<String, List<Todo>> grouped = {};
+    for (var todo in todos) {
+      final key = (todo.delegatee == null || todo.delegatee!.isEmpty) ? '担当者なし' : todo.delegatee!;
+      grouped.putIfAbsent(key, () => []).add(todo);
+    }
+    final sortedKeys = grouped.keys.toList()..sort();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Waiting Forの確認', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Text(
+                '返事待ちのタスクを確認しましょう。\n依頼先ごとに整理されています。',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+        const Divider(),
+        Expanded(
+          child: todos.isEmpty
+              ? const Center(
+                  child: Text(
+                    '待ち状態のタスクはありません。',
+                    style: const TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                )
+              : ListView(
+                  children: sortedKeys.map((key) {
+                    final groupTodos = grouped[key]!;
+                    return ExpansionTile(
+                      initiallyExpanded: true,
+                      title: Text(
+                        key,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      children: groupTodos.map((todo) {
+                        return ListTile(
+                          title: Text(todo.title),
+                          subtitle: Text(
+                            SettingsService().getCategoryName(todo.categoryId),
+                          ),
+                          trailing: PopupMenuButton<Category>(
+                            icon: const Icon(Icons.folder_open),
+                            onSelected: (Category newCategory) {
+                              final updated = todo.copyWith(categoryId: newCategory.id);
+                              _handleUpdate(updated);
+                            },
+                            itemBuilder: (BuildContext context) {
+                              return SettingsService().categories.map((category) {
+                                return PopupMenuItem<Category>(
+                                  value: category,
+                                  child: Text(category.name),
+                                );
+                              }).toList();
+                            },
+                          ),
+                          leading: IconButton(
+                            icon: const Icon(Icons.check_circle_outline),
+                            onPressed: () {
+                              final updated = todo.copyWith(isDone: true);
+                              _handleUpdate(updated);
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }).toList(),
                 ),
         ),
       ],
@@ -343,10 +452,17 @@ class _WeeklyReviewWizardState extends State<WeeklyReviewWizard> {
                           child: TextButton.icon(
                             icon: const Icon(Icons.edit, size: 16),
                             label: const Text('プロジェクトを編集'),
-                            onPressed: () {
-                              // Note: Currently we can't navigate to edit easily from here without leaving wizard
-                              // Ideally we would open a dialog or partial sheet.
-                              // For now, let's assume the user just reviews.
+                            onPressed: () async {
+                              final updated = await Navigator.push<Todo>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TodoAddView(todo: todo),
+                                ),
+                              );
+                              if (!context.mounted) return;
+                              if (updated != null) {
+                                _handleUpdate(updated);
+                              }
                             },
                           ),
                         ),

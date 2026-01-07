@@ -51,27 +51,27 @@ class _TodoViewState extends ConsumerState<TodoView> {
             segments: const [
               ButtonSegment(
                 value: 0,
-                label: Text('カテゴリ'),
+                label: Text('カテゴリ', softWrap: false),
                 icon: Icon(Icons.category),
               ),
               ButtonSegment(
                 value: 1,
-                label: Text('優先度'),
+                label: Text('優先度', softWrap: false),
                 icon: Icon(Icons.flag),
               ),
               ButtonSegment(
                 value: 2,
-                label: Text('期限'),
+                label: Text('期限', softWrap: false),
                 icon: Icon(Icons.calendar_today),
               ),
               ButtonSegment(
                 value: 3,
-                label: Text('対応待ち'),
+                label: Text('対応待ち', softWrap: false),
                 icon: Icon(Icons.people),
               ),
               ButtonSegment(
                 value: 4,
-                label: Text('Context'),
+                label: Text('コンテキスト', softWrap: false),
                 icon: Icon(Icons.label),
               ),
             ],
@@ -82,11 +82,6 @@ class _TodoViewState extends ConsumerState<TodoView> {
               });
             },
             showSelectedIcon: false,
-            style: ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              padding: MaterialStateProperty.all(EdgeInsets.zero),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
           ),
         ),
         
@@ -96,7 +91,7 @@ class _TodoViewState extends ConsumerState<TodoView> {
           child: TextField(
             controller: _quickAddController,
             decoration: InputDecoration(
-              hintText: 'Quick Add (Enter to add to Inbox)',
+              hintText: 'クイック追加 (EnterでInboxに追加)',
               prefixIcon: const Icon(Icons.add),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(30),
