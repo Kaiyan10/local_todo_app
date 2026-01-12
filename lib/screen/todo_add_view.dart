@@ -3,17 +3,19 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../data/todo.dart';
 import '../data/settings_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/todo_providers.dart';
 
-class TodoAddView extends StatefulWidget {
+class TodoAddView extends ConsumerStatefulWidget {
   const TodoAddView({super.key, this.todo});
 
   final Todo? todo;
 
   @override
-  State<TodoAddView> createState() => _TodoAddViewState();
+  ConsumerState<TodoAddView> createState() => _TodoAddViewState();
 }
 
-class _TodoAddViewState extends State<TodoAddView> {
+class _TodoAddViewState extends ConsumerState<TodoAddView> {
   final _textController = TextEditingController();
   final _tagsController = TextEditingController();
   final _noteController = TextEditingController();
@@ -25,6 +27,7 @@ class _TodoAddViewState extends State<TodoAddView> {
   List<SubTaskWrapper> _subTasks = [];
   final _subTaskController = TextEditingController();
   final _delegateeController = TextEditingController();
+  final _delegateeFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -54,6 +57,7 @@ class _TodoAddViewState extends State<TodoAddView> {
     _dueDateController.dispose();
     _subTaskController.dispose();
     _delegateeController.dispose();
+    _delegateeFocusNode.dispose();
     super.dispose();
   }
 
@@ -239,14 +243,77 @@ class _TodoAddViewState extends State<TodoAddView> {
         ),
         if (_categoryId == 'waitingFor') ...[
           const SizedBox(height: 16),
-          TextField(
-            controller: _delegateeController,
-            decoration: const InputDecoration(
-              labelText: '担当者 (Delegatee)',
-              border: OutlineInputBorder(),
-              helperText: '誰からの返信待ちですか？',
-              prefixIcon: Icon(Icons.person_outline),
-            ),
+          RawAutocomplete<String>(
+            textEditingController: _delegateeController,
+            focusNode: _delegateeFocusNode,
+            optionsBuilder: (TextEditingValue textEditingValue) {
+              final todosAsync = ref.read(todoListProvider);
+              final allTodos = todosAsync.value ?? [];
+              final options = allTodos
+                  .map((e) => e.delegatee)
+                  .whereType<String>()
+                  .where((e) => e.isNotEmpty)
+                  .toSet()
+                  .toList();
+              
+              if (textEditingValue.text.isEmpty) {
+                return const Iterable<String>.empty();
+              }
+              return options.where((String option) {
+                return option.toLowerCase().contains(
+                  textEditingValue.text.toLowerCase(),
+                );
+              });
+            },
+            optionsViewBuilder: (
+              BuildContext context,
+              AutocompleteOnSelected<String> onSelected,
+              Iterable<String> options,
+            ) {
+              return Align(
+                alignment: Alignment.topLeft,
+                child: Material(
+                  elevation: 4.0,
+                  child: SizedBox(
+                    width: 300, // Fixed width or flexible
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: options.length,
+                      itemBuilder: (BuildContext context, int index) {
+                        final String option = options.elementAt(index);
+                        return ListTile(
+                          title: Text(option),
+                          onTap: () {
+                            onSelected(option);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+            fieldViewBuilder: (
+              BuildContext context,
+              TextEditingController textEditingController,
+              FocusNode focusNode,
+              VoidCallback onFieldSubmitted,
+            ) {
+              return TextField(
+                controller: textEditingController,
+                focusNode: focusNode,
+                decoration: const InputDecoration(
+                  labelText: '担当者 (Delegatee)',
+                  border: OutlineInputBorder(),
+                  helperText: '誰からの返信待ちですか？',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                onSubmitted: (String value) {
+                  onFieldSubmitted();
+                },
+              );
+            },
           ),
         ],
       ],
