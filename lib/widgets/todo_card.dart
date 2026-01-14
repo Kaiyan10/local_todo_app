@@ -327,6 +327,16 @@ class _TodoCardState extends State<TodoCard> {
                   ],
                 ),
               ),
+              const PopupMenuItem(
+              value: 'add_subtask',
+              child: Row(
+                children: [
+                   Icon(Icons.playlist_add, size: 20),
+                   SizedBox(width: 8),
+                   Text('サブタスクを追加'),
+                ],
+              ),
+            ),
           ],
         ).then((value) {
           if (value == 'edit') {
@@ -335,6 +345,10 @@ class _TodoCardState extends State<TodoCard> {
              widget.onCheckboxChanged(!widget.todo.isDone);
           } else if (value == 'delete') {
              widget.onDelete?.call(widget.todo);
+          } else if (value == 'add_subtask') {
+            setState(() {
+              _isExpanded = true;
+            });
           }
         });
       },
@@ -368,28 +382,31 @@ class _TodoCardState extends State<TodoCard> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (hasSubTasks)
-            IconButton(
-              icon: Icon(_isExpanded ? Icons.expand_less : Icons.expand_more),
-              onPressed: () {
-                setState(() {
-                  _isExpanded = !_isExpanded;
-                });
-              },
+          IconButton(
+            icon: Icon(
+              hasSubTasks
+                  ? (_isExpanded ? Icons.expand_less : Icons.expand_more)
+                  : Icons.playlist_add,
+              color: hasSubTasks ? null : Theme.of(context).disabledColor,
             ),
+            onPressed: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            tooltip: hasSubTasks ? (_isExpanded ? '折りたたむ' : '展開') : 'サブタスクを追加',
+          ),
           IconButton(
             icon: const Icon(Icons.edit_outlined, size: 20),
             onPressed: widget.onEdit,
           ),
         ],
       ),
-      onTap: (hasSubTasks)
-          ? () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            }
-          : null,
+      onTap: () {
+        setState(() {
+          _isExpanded = !_isExpanded;
+        });
+      },
     );
   }
 
