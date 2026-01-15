@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import '../screen/todo_add_view.dart';
 import '../data/todo.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/todo_providers.dart';
+import '../data/settings_service.dart';
 import 'package:intl/intl.dart';
 
 final DateFormat _dateFormat = DateFormat('yyyy/MM/dd');
 
-class TodoCard extends StatefulWidget {
+class TodoCard extends ConsumerStatefulWidget {
   const TodoCard({
     super.key,
     required this.todo,
@@ -26,10 +29,10 @@ class TodoCard extends StatefulWidget {
   final String? parentTitle;
 
   @override
-  State<TodoCard> createState() => _TodoCardState();
+  ConsumerState<TodoCard> createState() => _TodoCardState();
 }
 
-class _TodoCardState extends State<TodoCard> {
+class _TodoCardState extends ConsumerState<TodoCard> {
   bool _isExpanded = false;
   final TextEditingController _subTaskController = TextEditingController();
 
@@ -327,6 +330,16 @@ class _TodoCardState extends State<TodoCard> {
                   ],
                 ),
               ),
+             const PopupMenuItem(
+              value: 'context',
+               child: Row(
+               children: [
+                   Icon(Icons.label_outline, size: 20),
+                   SizedBox(width: 8),
+                   Text('コンテキスト'),
+                ],
+              ),
+            ),
               const PopupMenuItem(
               value: 'add_subtask',
               child: Row(
@@ -345,6 +358,8 @@ class _TodoCardState extends State<TodoCard> {
              widget.onCheckboxChanged(!widget.todo.isDone);
           } else if (value == 'delete') {
              widget.onDelete?.call(widget.todo);
+          } else if (value == 'context') {
+            _showContextDialog();
           } else if (value == 'add_subtask') {
             setState(() {
               _isExpanded = true;
@@ -353,6 +368,112 @@ class _TodoCardState extends State<TodoCard> {
         });
       },
       child: _buildStyledCard(content),
+    );
+  }
+
+  Future<void> _showContextDialog() async {
+    // Capture initial tags to a local variable
+    final currentTags = List<String>.from(widget.todo.tags);
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Consumer(
+              builder: (context, ref, child) {
+                final settings = ref.watch(settingsServiceProvider);
+                final contexts = settings.contexts;
+
+                return AlertDialog(
+                  title: const Text('コンテキストを編集'),
+                  content: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 8.0,
+                      runSpacing: 4.0,
+                      children: [
+                        ...contexts.map((ctx) {
+                          final isSelected = currentTags.contains(ctx);
+                          return FilterChip(
+                            label: Text(ctx),
+                            selected: isSelected,
+                            onSelected: (val) {
+                              setState(() {
+                                if (val) {
+                                  currentTags.add(ctx);
+                                } else {
+                                  currentTags.remove(ctx);
+                                }
+                              });
+                              // Immediately update the todo
+                              final updated = widget.todo.copyWith(tags: currentTags);
+                              widget.onTodoChanged?.call(updated);
+                            },
+                          );
+                        }),
+                        ActionChip(
+                          avatar: const Icon(Icons.add, size: 18),
+                          label: const Text('新規'),
+                          onPressed: () async {
+                            final controller = TextEditingController();
+                            final newContext = await showDialog<String>(
+                              context: context,
+                              builder: (c) => AlertDialog(
+                                title: const Text('新しいコンテキスト'),
+                                content: TextField(
+                                  controller: controller,
+                                  decoration: const InputDecoration(
+                                    hintText: '例: @Work',
+                                  ),
+                                  autofocus: true,
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(c),
+                                    child: const Text('キャンセル'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      if (controller.text.trim().isNotEmpty) {
+                                        Navigator.pop(c, controller.text.trim());
+                                      }
+                                    },
+                                    child: const Text('追加'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (newContext != null && newContext.isNotEmpty) {
+                              await ref
+                                  .read(settingsServiceProvider)
+                                  .addContext(newContext);
+                              
+                              setState(() {
+                                if (!currentTags.contains(newContext)) {
+                                  currentTags.add(newContext);
+                                }
+                              });
+                              
+                              final updated = widget.todo.copyWith(tags: currentTags);
+                              widget.onTodoChanged?.call(updated);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('閉じる'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
